@@ -1,0 +1,220 @@
+/* ===== Code Block Styles ===== */
+.code-block {
+  position: relative;
+  margin: 12px 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #f6f8fa;
+  border: 1px solid var(--color-border);
+}
+
+.code-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.code-block__language {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.code-block__copy {
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.code-block__copy:hover {
+  border-color: var(--color-accent-blue);
+  color: var(--color-accent-blue);
+}
+
+.code-block__copy--copied {
+  border-color: var(--color-accent-green);
+  color: var(--color-accent-green);
+}
+
+.code-block__content {
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.code-block__content pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.code-block__content code {
+  font-family: inherit;
+}
+
+/* ===== Inline Code ===== */
+.inline-code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--color-bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--color-accent-orange);
+}
+
+/* ===== Blockquote ===== */
+.blockquote {
+  margin: 12px 0;
+  padding: 12px 16px;
+  border-left: 3px solid var(--color-accent-blue);
+  background: #ddf4ff;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+/* ===== GitHub Light Theme (highlight.js) ===== */
+.hljs {
+  color: #24292f;
+  background: transparent;
+}
+
+.hljs-doctag,
+.hljs-keyword,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type,
+.hljs-variable.language_ {
+  color: #cf222e;
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.class_.inherited__,
+.hljs-title.function_ {
+  color: #8250df;
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-literal,
+.hljs-meta,
+.hljs-number,
+.hljs-operator,
+.hljs-variable,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+  color: #0550ae;
+}
+
+.hljs-regexp,
+.hljs-string,
+.hljs-meta .hljs-string {
+  color: #0a3069;
+}
+
+.hljs-built_in,
+.hljs-symbol {
+  color: #953800;
+}
+
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+  color: #6e7781;
+}
+
+.hljs-name,
+.hljs-quote,
+.hljs-selector-tag,
+.hljs-selector-pseudo {
+  color: #116329;
+}
+
+.hljs-subst {
+  color: #24292f;
+}
+
+.hljs-section {
+  color: #0550ae;
+  font-weight: bold;
+}
+
+.hljs-bullet {
+  color: #953800;
+}
+
+.hljs-emphasis {
+  color: #24292f;
+  font-style: italic;
+}
+
+.hljs-strong {
+  color: #24292f;
+  font-weight: bold;
+}
+
+.hljs-addition {
+  color: #116329;
+  background-color: #dafbe1;
+}
+
+.hljs-deletion {
+  color: #82071e;
+  background-color: #ffebe9;
+}
+
+/* ===== Text Formatting ===== */
+.message-text {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.message-text p {
+  margin-bottom: 0.75em;
+}
+
+.message-text p:last-child {
+  margin-bottom: 0;
+}
+
+.message-text strong {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.message-text em {
+  font-style: italic;
+  color: var(--color-text-secondary);
+}
+
+.message-text ul,
+.message-text ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.message-text li {
+  margin-bottom: 4px;
+}
+
+.message-text a {
+  color: var(--color-accent-blue);
+  text-decoration: none;
+}
+
+.message-text a:hover {
+  text-decoration: underline;
+}

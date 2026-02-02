@@ -1,0 +1,19 @@
+{
+  "name": "sse-typewriter-demo",
+  "version": "1.0.0",
+  "description": "SSE streaming message demo with typewriter effect",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "start:legacy": "node server.js",
+    "dev": "npm run start",
+    "react": "cd react-chat && npm run dev",
+    "all": "concurrently \"npm run start\" \"npm run react\"",
+    "install:all": "npm install && cd react-chat && npm install"
+  },
+  "keywords": ["sse", "streaming", "typewriter"],
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

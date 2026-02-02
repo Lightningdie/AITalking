@@ -1,0 +1,116 @@
+/* ===== CSS Variables ===== */
+:root {
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f6f8fa;
+  --color-bg-tertiary: #f0f2f5;
+  --color-bg-input: #ffffff;
+  
+  --color-accent-blue: #0969da;
+  --color-accent-purple: #8250df;
+  --color-accent-green: #2da44e;
+  --color-accent-orange: #bf8700;
+  --color-accent-red: #cf222e;
+  
+  --color-text-primary: #1f2328;
+  --color-text-secondary: #656d76;
+  --color-text-muted: #8c959f;
+  
+  --color-border: #d0d7de;
+  --color-border-hover: #afb8c1;
+  
+  --color-user-bubble: #ddf4ff;
+  --color-assistant-bubble: #f6f8fa;
+  
+  --font-sans: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== Reset ===== */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0f2f5;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c8ce;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a3aab1;
+}
+
+/* ===== App Layout ===== */
+.app {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ===== Background ===== */
+.bg-effects {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(9, 105, 218, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(9, 105, 218, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.bg-glow {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  filter: blur(150px);
+  opacity: 0.12;
+}
+
+.bg-glow--blue {
+  top: -200px;
+  right: 10%;
+  background: var(--color-accent-blue);
+}
+
+.bg-glow--purple {
+  bottom: -200px;
+  left: 10%;
+  background: var(--color-accent-purple);
+}

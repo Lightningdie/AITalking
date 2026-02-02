@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SSE 流式消息 - 打字机效果</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <!-- Background Effects -->
+  <div class="bg-grid"></div>
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+  
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>SSE 流式消息</h1>
+      <p class="subtitle">Server-Sent Events 打字机效果演示</p>
+    </header>
+    
+    <!-- Input Section -->
+    <div class="input-section">
+      <label class="input-label">📝 输入要发送的文字：</label>
+      <div class="input-wrapper">
+        <textarea 
+          class="text-input" 
+          id="textInput" 
+          placeholder="在这里输入你想要逐字显示的文字...&#10;&#10;留空则使用默认演示文本。"
+        ></textarea>
+        <span class="char-count" id="charCount">0 字</span>
+      </div>
+    </div>
+
+    <!-- Control Buttons -->
+    <div class="controls">
+      <button class="btn btn-primary" id="startBtn">
+        <span>▶</span> 开始发送
+      </button>
+      <button class="btn btn-secondary" id="pauseBtn" disabled>
+        <span id="pauseIcon">⏸</span> <span id="pauseText">暂停</span>
+      </button>
+      <button class="btn btn-danger" id="cancelBtn" disabled>
+        <span>✕</span> 取消
+      </button>
+    </div>
+    
+    <!-- Speed Control -->
+    <div class="speed-control">
+      <label for="speedSlider">⚡ 速度:</label>
+      <input type="range" id="speedSlider" min="10" max="200" value="50">
+      <span class="speed-value" id="speedValue">50ms</span>
+    </div>
+    
+    <!-- Message Display -->
+    <div class="message-box">
+      <div class="message-header">
+        <div class="avatar">🤖</div>
+        <div class="message-meta">
+          <div class="name">AI Assistant</div>
+          <div class="time" id="timestamp">等待中...</div>
+        </div>
+      </div>
+      
+      <div class="message-content" id="messageContent">
+        <span id="textDisplay"></span><span class="cursor" id="cursor" style="display: none;"></span>
+      </div>
+      
+      <div class="status-bar">
+        <div class="status-indicator">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText">就绪</span>
+        </div>
+        <div class="progress" id="progress">0 / 0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/js/app.js"></script>
+</body>
+</html>
