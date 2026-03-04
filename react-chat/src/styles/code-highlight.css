@@ -82,6 +82,88 @@
   font-style: italic;
 }
 
+/* ===== 更多 Markdown：标题、水平线、任务列表、表格、图片、删除线 ===== */
+.md-heading {
+  margin: 1em 0 0.4em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.md-heading:first-child {
+  margin-top: 0;
+}
+.md-heading--1 { font-size: 1.35rem; }
+.md-heading--2 { font-size: 1.2rem; }
+.md-heading--3 { font-size: 1.1rem; }
+.md-heading--4 { font-size: 1rem; }
+.md-heading--5 { font-size: 0.95rem; }
+.md-heading--6 { font-size: 0.9rem; color: var(--color-text-secondary); }
+
+.md-hr {
+  margin: 1em 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.task-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 8px 0;
+}
+.task-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.task-list__checkbox {
+  flex-shrink: 0;
+  font-size: 1em;
+  opacity: 0.8;
+}
+.task-list__item--checked {
+  opacity: 0.85;
+}
+.task-list__item--checked .task-list__checkbox {
+  color: var(--color-accent-green, #1a7f37);
+}
+
+.md-table-wrap {
+  overflow-x: auto;
+  margin: 12px 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.md-table th,
+.md-table td {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+.md-table th {
+  background: var(--color-bg-tertiary);
+  font-weight: 600;
+}
+.md-table tbody tr:nth-child(even) {
+  background: var(--color-bg-tertiary);
+}
+
+.md-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+}
+
+.message-text del {
+  color: var(--color-text-secondary);
+  text-decoration: line-through;
+}
+
 /* ===== GitHub Light Theme (highlight.js) ===== */
 .hljs {
   color: #24292f;

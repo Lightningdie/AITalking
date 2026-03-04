@@ -35,8 +35,11 @@ export interface UseChatConfig {
   /** 上下文 token 上限，用于统计与超限预警，默认 128000 */
   contextTokenLimit?: number;
   tokenWarningThreshold?: number;
-  /** 是否将 system 消息纳入上下文，默认 true；设为 false 即“移除 system 消息”策略 */
   includeSystemInContext?: boolean;
+  /** 当前会话 ID，切换时 useChat 会据此重置消息状态 */
+  sessionId?: string;
+  /** 当前会话的初始消息（从本地存储加载），随 sessionId 一起传入 */
+  initialMessages?: Message[];
 }
 
 /**
@@ -85,5 +88,25 @@ export interface TokenStats {
   turnCount: number;
 }
 
+/**
+ * 会话：按会话 ID 存储，用于本地持久化与会话管理
+ */
+export interface SessionData {
+  id: string;
+  title: string;
+  messages: Message[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** 会话列表项（不含 messages） */
+export interface SessionMeta {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export type { ChatRequestParams, ChatResponse, UsagePayload } from './api';
 export { ApiError } from './api';
+export type { ModelRequestParams, ModelCallbacks, ModelMessage, ModelUsage } from './model';

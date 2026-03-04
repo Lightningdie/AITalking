@@ -4,7 +4,7 @@ import { ApiError } from '../types/api';
 import { createMessage } from '../utils/message';
 import { checkOnline } from '../utils/network';
 import { estimateMessagesTokens, initTokenTokenizer } from '../utils/tokenEstimate';
-import { sendStream, sendNonStream } from '../services/chatService';
+import { requestModel } from '../services/modelService';
 
 const STREAM_UPDATE_THROTTLE_MS = 80;
 
@@ -27,9 +27,11 @@ export function useChat({
   contextLength = 10,
   contextTokenLimit = DEFAULT_CONTEXT_TOKEN_LIMIT,
   tokenWarningThreshold = DEFAULT_TOKEN_WARNING_THRESHOLD,
-  includeSystemInContext = true
+  includeSystemInContext = true,
+  sessionId,
+  initialMessages
 }: UseChatConfig) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => initialMessages ?? []);
   const [streamingMessage, setStreamingMessage] = useState<Message | null>(null);
   const [status, setStatus] = useState<ChatStatus>('idle');
   const [lastErrorMessage, setLastErrorMessage] = useState<string | null>(null);
@@ -46,6 +48,17 @@ export function useChat({
   useEffect(() => {
     initTokenTokenizer();
   }, []);
+
+  const prevSessionIdRef = useRef<string | undefined>(sessionId);
+  useEffect(() => {
+    if (sessionId != null && prevSessionIdRef.current !== sessionId) {
+      prevSessionIdRef.current = sessionId;
+      setMessages(initialMessages ?? []);
+      setStreamingMessage(null);
+      setStatus('idle');
+      setLastErrorMessage(null);
+    }
+  }, [sessionId, initialMessages]);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -142,87 +155,86 @@ export function useChat({
 
       abortControllerRef.current = new AbortController();
       const signal = abortControllerRef.current.signal;
+      const modelId = `${provider}:${model}`;
 
       try {
-        await sendStream(
+        await requestModel(
           {
-            apiKey,
-            model,
-            provider,
+            modelId,
             messages: contextMessages,
             stream: true
           },
           {
             onChunk: throttledUpdateStreamContent,
-            onUsage: (usage) => {
-              setStats((prev) => ({
-                promptTokens: usage.prompt_tokens ?? 0,
-                completionTokens: usage.completion_tokens ?? 0,
-                totalTokens: prev.totalTokens + (usage.total_tokens ?? 0),
-                turnCount: prev.turnCount + 1
-              }));
+            onComplete: (usage) => {
+              if (rafIdRef.current !== null) {
+                cancelAnimationFrame(rafIdRef.current);
+                rafIdRef.current = null;
+              }
+              const fullContent = pendingStreamContentRef.current;
+              if (fullContent) {
+                setMessages((prev) => [
+                  ...prev,
+                  { ...assistantMessage, content: fullContent, status: 'done' }
+                ]);
+              }
+              setStreamingMessage(null);
+              setStatus('idle');
+              if (usage) {
+                setStats((prev) => ({
+                  promptTokens: usage.prompt_tokens ?? 0,
+                  completionTokens: usage.completion_tokens ?? 0,
+                  totalTokens: prev.totalTokens + (usage.total_tokens ?? 0),
+                  turnCount: prev.turnCount + 1
+                }));
+              }
+            },
+            onError: (err) => {
+              const isAbort = err.name === 'AbortError' || signal.aborted;
+              const fullContent = pendingStreamContentRef.current;
+              if (rafIdRef.current !== null) {
+                cancelAnimationFrame(rafIdRef.current);
+                rafIdRef.current = null;
+              }
+              if (throttleTimerRef.current !== null) {
+                clearTimeout(throttleTimerRef.current);
+                throttleTimerRef.current = null;
+              }
+              if (isAbort) {
+                setStatus('idle');
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    ...assistantMessage,
+                    content: fullContent
+                      ? fullContent + '\n\n⚠️ [已停止生成]'
+                      : '⚠️ [已停止生成]',
+                    status: 'aborted'
+                  }
+                ]);
+                setStreamingMessage(null);
+                return;
+              }
+              setStatus('error');
+              const errMsg = err instanceof ApiError ? err.message : err.message;
+              setLastErrorMessage(errMsg);
+              failedMessageContentRef.current = fullContent || errMsg;
+              setMessages((prev) => [
+                ...prev,
+                {
+                  ...assistantMessage,
+                  content: failedMessageContentRef.current ?? errMsg,
+                  status: 'error'
+                }
+              ]);
+              setStreamingMessage(null);
+              failedMessageContentRef.current = null;
             }
           },
-          signal
+          { signal, apiKey }
         );
-
-        if (rafIdRef.current !== null) {
-          cancelAnimationFrame(rafIdRef.current);
-          rafIdRef.current = null;
-        }
-        const fullContent = pendingStreamContentRef.current;
-        if (fullContent) {
-          setMessages((prev) => [
-            ...prev,
-            { ...assistantMessage, content: fullContent, status: 'done' }
-          ]);
-        }
-        setStreamingMessage(null);
-        setStatus('idle');
-      } catch (err) {
-        const isAbort = (err as Error).name === 'AbortError' || signal.aborted;
-        const fullContent = pendingStreamContentRef.current;
-
-        if (rafIdRef.current !== null) {
-          cancelAnimationFrame(rafIdRef.current);
-          rafIdRef.current = null;
-        }
-        if (throttleTimerRef.current !== null) {
-          clearTimeout(throttleTimerRef.current);
-          throttleTimerRef.current = null;
-        }
-
-        if (isAbort) {
-          setStatus('idle');
-          setMessages((prev) => [
-            ...prev,
-            {
-              ...assistantMessage,
-              content: fullContent
-                ? fullContent + '\n\n⚠️ [已停止生成]'
-                : '⚠️ [已停止生成]',
-              status: 'aborted'
-            }
-          ]);
-          setStreamingMessage(null);
-          return;
-        }
-
-        setStatus('error');
-        const errMsg = err instanceof ApiError ? err.message : (err as Error).message;
-        setLastErrorMessage(errMsg);
-        failedMessageContentRef.current = fullContent || errMsg;
-        setMessages((prev) => [
-          ...prev,
-          {
-            ...assistantMessage,
-            content: failedMessageContentRef.current ?? errMsg,
-            status: 'error'
-          }
-        ]);
-        setStreamingMessage(null);
-        failedMessageContentRef.current = null;
-        throw err;
+      } catch {
+        // onError 已处理，仅清理 ref
       } finally {
         if (rafIdRef.current !== null) {
           cancelAnimationFrame(rafIdRef.current);
@@ -260,50 +272,59 @@ export function useChat({
 
       abortControllerRef.current = new AbortController();
       const signal = abortControllerRef.current.signal;
+      const modelId = `${provider}:${model}`;
 
       try {
-        const result = await sendNonStream(
+        await requestModel(
           {
-            apiKey,
-            model,
-            provider,
+            modelId,
             messages: contextMessages,
             stream: false
           },
-          signal
-        );
-
-        if (result.usage) {
-          setStats((prev) => ({
-            promptTokens: result.usage!.prompt_tokens ?? 0,
-            completionTokens: result.usage!.completion_tokens ?? 0,
-            totalTokens: prev.totalTokens + (result.usage!.total_tokens ?? 0),
-            turnCount: prev.turnCount + 1
-          }));
-        }
-
-        if (result.content) {
-          setMessages((prev) => [
-            ...prev,
-            { ...assistantMessage, content: result.content, status: 'done' }
-          ]);
-        }
-        setStreamingMessage(null);
-        setStatus('idle');
-      } catch (err) {
-        setMessages((prev) => [
-          ...prev,
           {
-            ...assistantMessage,
-            content: err instanceof ApiError ? err.message : (err as Error).message,
-            status: 'error'
-          }
-        ]);
-        setStreamingMessage(null);
-        setStatus('error');
-        setLastErrorMessage(err instanceof ApiError ? err.message : (err as Error).message);
-        throw err;
+            onChunk: (chunk) => {
+              pendingStreamContentRef.current = chunk;
+              setStreamingMessage((prev) => (prev ? { ...prev, content: chunk } : null));
+            },
+            onComplete: (usage) => {
+              const content = pendingStreamContentRef.current;
+              if (content) {
+                setMessages((prev) => [
+                  ...prev,
+                  { ...assistantMessage, content, status: 'done' }
+                ]);
+              }
+              setStreamingMessage(null);
+              setStatus('idle');
+              if (usage) {
+                setStats((prev) => ({
+                  promptTokens: usage.prompt_tokens ?? 0,
+                  completionTokens: usage.completion_tokens ?? 0,
+                  totalTokens: prev.totalTokens + (usage.total_tokens ?? 0),
+                  turnCount: prev.turnCount + 1
+                }));
+              }
+            },
+            onError: (err) => {
+              setMessages((prev) => [
+                ...prev,
+                {
+                  ...assistantMessage,
+                  content: err instanceof ApiError ? err.message : err.message,
+                  status: 'error'
+                }
+              ]);
+              setStreamingMessage(null);
+              setStatus('error');
+              setLastErrorMessage(err instanceof ApiError ? err.message : err.message);
+            }
+          },
+          { signal, apiKey }
+        );
+      } catch {
+        // onError 已处理
       } finally {
+        pendingStreamContentRef.current = '';
         abortControllerRef.current = null;
       }
     },

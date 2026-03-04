@@ -61,6 +61,15 @@
   margin: 0 auto;
 }
 
+.messages-list__fold {
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
 /* ===== MessageItem（气泡）规范：user/assistant 区分、流式光标与 loading、错误态明显 ===== */
 .message-item {
   display: flex;
@@ -339,6 +348,8 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .sidebar__header {
@@ -364,6 +375,103 @@
 .sidebar__footer {
   padding: 16px 20px;
   border-top: 1px solid var(--color-border);
+}
+
+/* ===== 会话列表 ===== */
+.session-list {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.session-list__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.session-list__title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.session-list__new {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+.session-list__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.session-list__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 2px;
+  cursor: pointer;
+  outline: none;
+}
+
+.session-list__item:focus-visible {
+  outline: 2px solid var(--color-accent-blue);
+  outline-offset: 2px;
+}
+
+.session-list__item--active {
+  background: var(--color-bg-tertiary);
+}
+
+.session-list__item-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--color-text-primary);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+
+.session-list__item:hover .session-list__item-btn {
+  background: var(--color-bg-tertiary);
+}
+
+.session-list__item-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-list__item-delete {
+  flex-shrink: 0;
+  padding: 4px 6px;
+  font-size: 0.85rem;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.session-list__item-delete:hover {
+  opacity: 1;
+}
+
+.session-list__item-delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ===== Config Section ===== */

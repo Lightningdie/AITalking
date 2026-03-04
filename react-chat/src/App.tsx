@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { ChatContainer, Sidebar } from './components';
-import { useChat, useLocalStorage } from './hooks';
+import { useChat, useLocalStorage, useSessions } from './hooks';
 import type { ProviderKey } from './components/Sidebar';
 import './styles/components.css';
 import './styles/code-highlight.css';
@@ -15,6 +15,16 @@ function App() {
     true
   );
   const [streamMode, setStreamMode] = useState(true);
+
+  const {
+    sessions,
+    currentSessionId,
+    currentSessionData,
+    createSession,
+    deleteSession,
+    switchSession,
+    saveCurrentSessionMessages
+  } = useSessions();
 
   const {
     messages,
@@ -39,8 +49,16 @@ function App() {
     contextLength,
     contextTokenLimit: 128000,
     tokenWarningThreshold: 0.8,
-    includeSystemInContext
+    includeSystemInContext,
+    sessionId: currentSessionId,
+    initialMessages: currentSessionData?.messages ?? []
   });
+
+  useEffect(() => {
+    if (status !== 'requesting' && status !== 'streaming') {
+      saveCurrentSessionMessages(messages);
+    }
+  }, [messages, status]);
 
   const handleSendMessage = useCallback(
     async (content: string) => {
@@ -89,6 +107,11 @@ function App() {
         contextMessages={contextMessages}
         includeSystemInContext={includeSystemInContext}
         onIncludeSystemInContextChange={setIncludeSystemInContext}
+        sessions={sessions}
+        currentSessionId={currentSessionId}
+        onCreateSession={createSession}
+        onSwitchSession={switchSession}
+        onDeleteSession={deleteSession}
       />
 
       <ChatContainer

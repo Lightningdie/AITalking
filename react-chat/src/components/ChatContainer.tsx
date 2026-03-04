@@ -4,6 +4,8 @@ import { InputBox } from './InputBox';
 import type { Message, ChatStatus } from '../types';
 
 const SCROLL_BOTTOM_THRESHOLD = 80;
+/** 超过此条数只渲染最近 N 条，减轻长对话 DOM 与 re-render */
+const MESSAGE_VIRTUAL_THRESHOLD = 50;
 
 export interface ChatContainerProps {
   messages: Message[];
@@ -103,7 +105,11 @@ export function ChatContainer({
         className="messages-area"
         onScroll={handleScroll}
       >
-        <MessageList messages={displayMessages} emptyContent={<WelcomeMessage />} />
+        <MessageList
+            messages={displayMessages}
+            emptyContent={<WelcomeMessage />}
+            virtualThreshold={MESSAGE_VIRTUAL_THRESHOLD}
+          />
       </div>
 
       <InputBox

@@ -24,7 +24,6 @@ export async function sendStream(
   const decoder = new TextDecoder();
   let buffer = '';
   let fullContent = '';
-  let streamError: string | null = null;
 
   try {
     while (true) {
@@ -55,7 +54,6 @@ export async function sendStream(
               callbacks.onUsage(parsed.usage);
             }
             if (parsed.error) {
-              streamError = parsed.error;
               throw new Error(parsed.error);
             }
           } catch (e) {
@@ -65,12 +63,15 @@ export async function sendStream(
       }
     }
   } finally {
+    buffer = '';
+    fullContent = '';
     try {
       await reader.cancel();
       reader.releaseLock();
     } catch {
       // ignore
     }
+    // reader 及时释放、abort 后清空 buffer，避免多轮对话内存增长
   }
 
   if (signal?.aborted) {

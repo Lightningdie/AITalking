@@ -1,11 +1,11 @@
-import { useMemo, ReactNode } from 'react';
+import { memo, useMemo, Fragment, type ReactNode } from 'react';
 import { CodeBlock } from './CodeBlock';
 
 export interface MessageContentProps {
   content: string;
 }
 
-export function MessageContent({ content }: MessageContentProps) {
+function MessageContentInner({ content }: MessageContentProps) {
   const renderedContent = useMemo(() => {
     if (!content) return null;
     return parseContent(content);
@@ -13,6 +13,8 @@ export function MessageContent({ content }: MessageContentProps) {
 
   return <div className="message-text">{renderedContent}</div>;
 }
+
+export const MessageContent = memo(MessageContentInner);
 
 /**
  * 仅匹配已闭合的 ```...``` 代码块，流式下未闭合部分当普通文本渲染，防止断语法/报错
@@ -61,9 +63,54 @@ function parseContent(text: string): ReactNode[] | ReactNode {
 const UNORDERED_LIST_PREFIX = /^\s*[-*]\s+/;
 /** 有序列表行首：数字. 后跟空格 */
 const ORDERED_LIST_PREFIX = /^\s*\d+\.\s+/;
+/** 标题：1–6 个 # 后跟空格和内容 */
+const HEADING_REGEX = /^(#{1,6})\s+(.+)$/;
+/** 水平线：--- 或 *** 或 ___ */
+const HR_REGEX = /^(---|\*\*\*|___)\s*$/;
+/** 任务列表：- [ ] 或 - [x] */
+const TASK_LIST_REGEX = /^\s*[-*]\s+\[([ xX])\]\s+(.*)$/;
+/** 表格行：包含 | */
+const TABLE_ROW_REGEX = /\|.+\|/;
+/** 表格分隔行：|---|---| */
+const TABLE_SEP_REGEX = /^\s*\|?(\s*:?[-]+\s*\|)+\s*$/;
+
+interface TaskItem {
+  checked: boolean;
+  text: string;
+}
+
+interface TableParse {
+  header: string[];
+  rows: string[][];
+}
+
+function parseTableLines(lines: string[], start: number): { table: TableParse; nextIndex: number } {
+  const headerLine = lines[start];
+  const header = splitTableRow(headerLine);
+  let nextIndex = start + 1;
+  const rows: string[][] = [];
+
+  if (nextIndex < lines.length && TABLE_SEP_REGEX.test(lines[nextIndex])) {
+    nextIndex += 1;
+  }
+  while (nextIndex < lines.length && TABLE_ROW_REGEX.test(lines[nextIndex])) {
+    rows.push(splitTableRow(lines[nextIndex]));
+    nextIndex += 1;
+  }
+  return { table: { header, rows }, nextIndex };
+}
+
+function splitTableRow(line: string): string[] {
+  const trimmed = line.trim();
+  if (!trimmed) return [];
+  const parts = trimmed.split('|').map((p) => p.trim());
+  if (parts[0] === '') parts.shift();
+  if (parts[parts.length - 1] === '') parts.pop();
+  return parts;
+}
 
 /**
- * 按行解析 Markdown：引用、无序/有序列表、普通段落；遇到不同类型先 flush 再切换
+ * 按行解析 Markdown：标题、水平线、引用、表格、任务列表、无序/有序列表、普通段落
  */
 function formatInlineText(text: string): ReactNode[] | ReactNode {
   if (!text) return null;
@@ -75,13 +122,19 @@ function formatInlineText(text: string): ReactNode[] | ReactNode {
   let blockquoteLines: string[] = [];
   let ulItems: string[] = [];
   let olItems: string[] = [];
+  let taskItems: TaskItem[] = [];
   let paragraphLines: string[] = [];
 
   function flushBlockquote() {
     if (blockquoteLines.length > 0) {
       result.push(
         <blockquote key={`bq-${keyIndex++}`} className="blockquote">
-          {blockquoteLines.join('\n')}
+          {blockquoteLines.map((l, i) => (
+            <Fragment key={i}>
+              {formatLine(l)}
+              {i < blockquoteLines.length - 1 && <br />}
+            </Fragment>
+          ))}
         </blockquote>
       );
       blockquoteLines = [];
@@ -114,6 +167,24 @@ function formatInlineText(text: string): ReactNode[] | ReactNode {
     }
   }
 
+  function flushTaskList() {
+    if (taskItems.length > 0) {
+      result.push(
+        <ul key={`task-${keyIndex++}`} className="task-list">
+          {taskItems.map((item, i) => (
+            <li key={i} className={item.checked ? 'task-list__item--checked' : ''}>
+              <span className="task-list__checkbox" aria-hidden>
+                {item.checked ? '☑' : '☐'}
+              </span>
+              {formatLine(item.text)}
+            </li>
+          ))}
+        </ul>
+      );
+      taskItems = [];
+    }
+  }
+
   function flushParagraph() {
     for (let i = 0; i < paragraphLines.length; i++) {
       const line = paragraphLines[i];
@@ -134,28 +205,102 @@ function formatInlineText(text: string): ReactNode[] | ReactNode {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
+    const headingMatch = line.match(HEADING_REGEX);
+    if (headingMatch) {
+      flushBlockquote();
+      flushUnorderedList();
+      flushOrderedList();
+      flushTaskList();
+      flushParagraph();
+      const level = Math.min(6, headingMatch[1].length);
+      const Tag = `h${level}` as keyof JSX.IntrinsicElements;
+      result.push(
+        <Tag key={`h-${keyIndex++}`} className={`md-heading md-heading--${level}`}>
+          {formatLine(headingMatch[2])}
+        </Tag>
+      );
+      continue;
+    }
+
+    if (HR_REGEX.test(line)) {
+      flushBlockquote();
+      flushUnorderedList();
+      flushOrderedList();
+      flushTaskList();
+      flushParagraph();
+      result.push(<hr key={`hr-${keyIndex++}`} className="md-hr" />);
+      continue;
+    }
+
+    if (TABLE_ROW_REGEX.test(line)) {
+      flushBlockquote();
+      flushUnorderedList();
+      flushOrderedList();
+      flushTaskList();
+      flushParagraph();
+      const { table, nextIndex } = parseTableLines(lines, i);
+      i = nextIndex - 1;
+      result.push(
+        <div key={`table-${keyIndex++}`} className="md-table-wrap">
+          <table className="md-table">
+            <thead>
+              <tr>
+                {table.header.map((cell, c) => (
+                  <th key={c}>{formatLine(cell)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((row, r) => (
+                <tr key={r}>
+                  {row.map((cell, c) => (
+                    <td key={c}>{formatLine(cell)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      continue;
+    }
+
     if (line.startsWith('> ')) {
-      /* 引用：先 flush 其它块，再累积引用行 */
+      flushBlockquote();
+      flushUnorderedList();
+      flushOrderedList();
+      flushTaskList();
+      flushParagraph();
+      blockquoteLines.push(line.slice(2));
+      continue;
+    }
+
+    const taskMatch = line.match(TASK_LIST_REGEX);
+    if (taskMatch) {
       flushBlockquote();
       flushUnorderedList();
       flushOrderedList();
       flushParagraph();
-      blockquoteLines.push(line.slice(2));
+      taskItems.push({
+        checked: taskMatch[1].toLowerCase() === 'x',
+        text: taskMatch[2].trim()
+      });
       continue;
     }
 
     if (UNORDERED_LIST_PREFIX.test(line)) {
       flushBlockquote();
       flushOrderedList();
+      flushTaskList();
       flushParagraph();
       ulItems.push(line.replace(UNORDERED_LIST_PREFIX, '').trim());
       continue;
     }
 
     if (ORDERED_LIST_PREFIX.test(line)) {
-      /* 有序列表：同上，累积 ol 项 */
       flushBlockquote();
       flushUnorderedList();
+      flushTaskList();
       flushParagraph();
       olItems.push(line.replace(ORDERED_LIST_PREFIX, '').trim());
       continue;
@@ -164,12 +309,14 @@ function formatInlineText(text: string): ReactNode[] | ReactNode {
     flushBlockquote();
     flushUnorderedList();
     flushOrderedList();
-    paragraphLines.push(line); /* 普通段落行 */
+    flushTaskList();
+    paragraphLines.push(line);
   }
 
   flushBlockquote();
   flushUnorderedList();
   flushOrderedList();
+  flushTaskList();
   flushParagraph();
 
   return result.length > 0 ? result : null;
@@ -177,6 +324,8 @@ function formatInlineText(text: string): ReactNode[] | ReactNode {
 
 /** [显示文本](url) 链接格式 */
 const LINK_REGEX = /\[([^\]]*)\]\(([^)]*)\)/g;
+/** ![alt](url) 图片格式 */
+const IMAGE_REGEX = /!\[([^\]]*)\]\(([^)]*)\)/g;
 
 /** 仅允许常见安全协议，避免 javascript: 等 */
 function isSafeHref(href: string): boolean {
@@ -225,32 +374,67 @@ function formatLine(line: string): ReactNode {
   return parseSegmentWithLinks(line, 0);
 }
 
-/** 在无行内代码的片段内解析 [text](url)，并处理 **粗体** / *斜体* */
+type InlineMatch =
+  | { index: number; length: number; type: 'img'; alt: string; url: string }
+  | { index: number; length: number; type: 'link'; text: string; url: string };
+
+/** 在无行内代码的片段内解析 ![alt](url) 图片、[text](url) 链接，以及 **粗体** / *斜体* / ~~删除线~~ */
 function parseSegmentWithLinks(segment: string, keyBase: number): ReactNode {
   const parts: ReactNode[] = [];
   let lastIndex = 0;
   let keyIdx = keyBase;
 
+  const allMatches: InlineMatch[] = [];
+  IMAGE_REGEX.lastIndex = 0;
+  let m;
+  while ((m = IMAGE_REGEX.exec(segment)) !== null) {
+    allMatches.push({
+      index: m.index,
+      length: m[0].length,
+      type: 'img',
+      alt: m[1],
+      url: m[2]
+    });
+  }
   LINK_REGEX.lastIndex = 0;
-  let match;
+  while ((m = LINK_REGEX.exec(segment)) !== null) {
+    if (segment[m.index - 1] === '!') continue;
+    allMatches.push({
+      index: m.index,
+      length: m[0].length,
+      type: 'link',
+      text: m[1],
+      url: m[2]
+    });
+  }
+  allMatches.sort((a, b) => a.index - b.index);
 
-  while ((match = LINK_REGEX.exec(segment)) !== null) {
+  for (const match of allMatches) {
     if (match.index > lastIndex) {
       parts.push(
-        formatInlineBoldItalic(segment.slice(lastIndex), `seg-${keyIdx++}`)
+        formatInlineBoldItalic(segment.slice(lastIndex, match.index), `seg-${keyIdx++}`)
       );
     }
-    const [, text, url] = match;
-    if (isSafeHref(url)) {
+    if (match.type === 'img' && isSafeHref(match.url)) {
       parts.push(
-        <a key={`link-${keyIdx++}`} href={url} target="_blank" rel="noopener noreferrer">
-          {text}
+        <img
+          key={`img-${keyIdx++}`}
+          src={match.url}
+          alt={match.alt}
+          className="md-img"
+          loading="lazy"
+        />
+      );
+    } else if (match.type === 'link' && isSafeHref(match.url)) {
+      parts.push(
+        <a key={`link-${keyIdx++}`} href={match.url} target="_blank" rel="noopener noreferrer">
+          {match.text}
         </a>
       );
     } else {
-      parts.push(match[0]); /* 不安全协议保留原文，不渲染为链接 */
+      parts.push(segment.slice(match.index, match.index + match.length));
     }
-    lastIndex = match.index + match[0].length;
+    lastIndex = match.index + match.length;
   }
 
   if (parts.length === 0) {
@@ -268,13 +452,20 @@ function parseSegmentWithLinks(segment: string, keyBase: number): ReactNode {
   return <span key={keyBase}>{parts}</span>;
 }
 
-/** **粗体** 与 *斜体*（避免 *** 被拆散） */
+/** **粗体**、__粗体__、*斜体*、_斜体_、~~删除线~~ */
 function formatInlineBoldItalic(text: string, key: string): ReactNode {
   let result = text;
   result = result.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  result = result.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  result = result.replace(/\~\~([^~]+)\~\~/g, '<del>$1</del>');
   result = result.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+  result = result.replace(/(?<!_)_([^_]+)_(?!_)/g, '<em>$1</em>');
 
-  if (result.includes('<strong>') || result.includes('<em>')) {
+  if (
+    result.includes('<strong>') ||
+    result.includes('<em>') ||
+    result.includes('<del>')
+  ) {
     return <span key={key} dangerouslySetInnerHTML={{ __html: result }} />;
   }
   return result;

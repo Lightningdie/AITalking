@@ -1,4 +1,4 @@
-import type { TokenStats, ChatStatus, Message } from '../types';
+import type { TokenStats, ChatStatus, Message, SessionMeta } from '../types';
 
 const PROVIDERS = {
   zhipu: {
@@ -52,6 +52,12 @@ export interface SidebarProps {
   /** 是否将 system 纳入上下文 */
   includeSystemInContext?: boolean;
   onIncludeSystemInContextChange?: (value: boolean) => void;
+  /** 会话管理（可选） */
+  sessions?: SessionMeta[];
+  currentSessionId?: string;
+  onCreateSession?: () => void;
+  onSwitchSession?: (id: string) => void;
+  onDeleteSession?: (id: string) => void;
 }
 
 export function Sidebar({
@@ -75,7 +81,12 @@ export function Sidebar({
   tokenWarningThreshold = 0.8,
   contextMessages,
   includeSystemInContext = true,
-  onIncludeSystemInContextChange
+  onIncludeSystemInContextChange,
+  sessions = [],
+  currentSessionId,
+  onCreateSession,
+  onSwitchSession,
+  onDeleteSession
 }: SidebarProps) {
   const actionDisabled = status === 'requesting' || status === 'streaming';
   const currentProvider = PROVIDERS[provider] ?? PROVIDERS.zhipu;
@@ -99,6 +110,61 @@ export function Sidebar({
       <div className="sidebar__content">
         {isOffline && (
           <div className="offline-notice">⚠️ 网络连接已断开，请检查网络后重试</div>
+        )}
+
+        {onCreateSession && onSwitchSession && (
+          <div className="session-list">
+            <div className="session-list__header">
+              <span className="session-list__title">💬 会话</span>
+              <button
+                type="button"
+                className="btn btn--ghost session-list__new"
+                onClick={onCreateSession}
+                disabled={actionDisabled}
+                title="新建会话"
+              >
+                ➕ 新建
+              </button>
+            </div>
+            <ul className="session-list__items">
+              {sessions.map((s) => (
+                <li
+                  key={s.id}
+                  role="button"
+                  tabIndex={0}
+                  className={`session-list__item ${currentSessionId === s.id ? 'session-list__item--active' : ''}`}
+                  onClick={() => onSwitchSession(s.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSwitchSession(s.id);
+                    }
+                  }}
+                  title={s.title || '新对话'}
+                >
+                  <span className="session-list__item-btn session-list__item-title">
+                    {s.title || '新对话'}
+                  </span>
+                  {onDeleteSession && (
+                    <button
+                      type="button"
+                      className="session-list__item-delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        onDeleteSession(s.id);
+                      }}
+                      disabled={actionDisabled}
+                      title="删除会话"
+                      aria-label="删除会话"
+                    >
+                      🗑️
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
         <div className="config-section">
