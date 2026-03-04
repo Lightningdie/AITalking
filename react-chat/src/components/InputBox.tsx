@@ -1,20 +1,19 @@
 import { useState, useRef, useEffect } from 'react';
 
-export interface ChatInputProps {
+export interface InputBoxProps {
   onSend: (content: string) => void;
-  /** 由全局 status 派生：requesting | streaming 时为 true */
   disabled?: boolean;
-  /** 由全局 status 派生：requesting 时为 true，用于显示发送按钮 loading */
   loading?: boolean;
   placeholder?: string;
 }
 
-export function ChatInput({
+/** 仅负责输入与提交 UI，禁用/loading 由外部传入 */
+export function InputBox({
   onSend,
   disabled,
   loading = false,
   placeholder = '输入消息... (Shift+Enter 换行)'
-}: ChatInputProps) {
+}: InputBoxProps) {
   const [value, setValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -72,4 +71,4 @@ export function ChatInput({
   );
 }
 
-export default ChatInput;
+export default InputBox;

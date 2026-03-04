@@ -105,7 +105,9 @@ export function useChat({
   provider = 'zhipu',
   contextLength = 10
 }: UseChatConfig) {
+  /** 历史消息（稳定）：仅在有完整内容时追加，流式中不写入 */
   const [messages, setMessages] = useState<Message[]>([]);
+  /** 当前流式 buffer：仅用于展示，生成完成后并入 messages 并置为 null */
   const [streamingMessage, setStreamingMessage] = useState<Message | null>(null);
   const [status, setStatus] = useState<ChatStatus>('idle');
   const [lastErrorMessage, setLastErrorMessage] = useState<string | null>(null);
@@ -115,6 +117,8 @@ export function useChat({
   const abortControllerRef = useRef<AbortController | null>(null);
   const pendingStreamContentRef = useRef<string>('');
   const rafIdRef = useRef<number | null>(null);
+  /** 流式报错时写入该条消息用的内容（供外层 catch 使用） */
+  const failedMessageContentRef = useRef<string | null>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -161,11 +165,13 @@ export function useChat({
       setStatus('requesting');
       setLastErrorMessage(null);
 
+      /* 验收 5 - 用户消息入列：提交后立即加入 messages，状态标记为 done */
       const userMessage = createMessage({ role: 'user', content, status: 'done' });
       setMessages((prev) => [...prev, userMessage]);
 
       const contextMessages = [...getContextMessages(), { role: 'user' as const, content }];
 
+      /* 验收 6 - Assistant 占位：提前插入一条 assistant，content 空、status streaming，UI 先出气泡再打字 */
       const assistantMessage = createMessage({
         role: 'assistant',
         content: '',
@@ -239,6 +245,7 @@ export function useChat({
                     error?: string;
                   };
 
+                  /* 验收 7 - 流式绑定占位：buffer 持续 append，同步更新同一占位 message，不重复、不跳跃 */
                   if (parsed.content) {
                     fullContent += parsed.content;
                     throttledUpdateStreamContent(fullContent);
@@ -278,12 +285,16 @@ export function useChat({
               cancelAnimationFrame(rafIdRef.current);
               rafIdRef.current = null;
             }
-            if (fullContent) {
-              setMessages((prev) => [
-                ...prev,
-                { ...assistantMessage, content: fullContent, status: 'done' }
-              ]);
-            }
+            setMessages((prev) => [
+              ...prev,
+              {
+                ...assistantMessage,
+                content: fullContent
+                  ? fullContent + '\n\n⚠️ [已停止生成]'
+                  : '⚠️ [已停止生成]',
+                status: 'aborted'
+              }
+            ]);
             setStreamingMessage(null);
             return;
           }
@@ -302,23 +313,29 @@ export function useChat({
             const contentWithWarning = fullContent + '\n\n⚠️ [连接中断，内容可能不完整]';
             setMessages((prev) => [
               ...prev,
-              { ...assistantMessage, content: contentWithWarning, status: 'done' }
+              { ...assistantMessage, content: contentWithWarning, status: 'error' }
             ]);
             setStreamingMessage(null);
             return;
           }
 
           if (streamError) {
+            failedMessageContentRef.current = fullContent
+              ? fullContent + '\n\n' + streamError
+              : streamError;
             throw new Error(streamError);
           }
 
           if (isConnectionError) {
+            failedMessageContentRef.current = fullContent || '连接中断，请检查网络后重试';
             throw new Error('连接中断，请检查网络后重试');
           }
 
+          failedMessageContentRef.current = fullContent || (readError as Error).message;
           throw readError;
         }
 
+        /* 验收 7 - 流式结束：占位消息并入 history 一条，无重复 */
         if (fullContent) {
           if (rafIdRef.current !== null) {
             cancelAnimationFrame(rafIdRef.current);
@@ -333,7 +350,15 @@ export function useChat({
         setStatus('idle');
       } catch (err) {
         setStatus('error');
-        setLastErrorMessage((err as Error).message);
+        const errMsg = (err as Error).message;
+        setLastErrorMessage(errMsg);
+        const contentForMessage = failedMessageContentRef.current ?? errMsg;
+        setMessages((prev) => [
+          ...prev,
+          { ...assistantMessage, content: contentForMessage, status: 'error' }
+        ]);
+        setStreamingMessage(null);
+        failedMessageContentRef.current = null;
         throw err;
       } finally {
         try {
@@ -370,11 +395,13 @@ export function useChat({
       setStatus('requesting');
       setLastErrorMessage(null);
 
+      /* 验收 5 - 用户消息入列 */
       const userMessage = createMessage({ role: 'user', content, status: 'done' });
       setMessages((prev) => [...prev, userMessage]);
 
       const contextMessages = [...getContextMessages(), { role: 'user' as const, content }];
 
+      /* 验收 6 - Assistant 占位，先出气泡再等响应 */
       const assistantMessage = createMessage({
         role: 'assistant',
         content: '',
@@ -447,6 +474,15 @@ export function useChat({
         setStreamingMessage(null);
         setStatus('idle');
       } catch (err) {
+        /* 验收 4：报错反映到该条消息 - 将失败的 assistant 入列，status error */
+        setMessages((prev) => [
+          ...prev,
+          {
+            ...assistantMessage,
+            content: (err as Error).message,
+            status: 'error'
+          }
+        ]);
         setStreamingMessage(null);
         setStatus('error');
         setLastErrorMessage((err as Error).message);

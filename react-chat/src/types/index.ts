@@ -9,12 +9,12 @@ export type ChatStatus = 'idle' | 'requesting' | 'streaming' | 'error';
 export type MessageRole = 'user' | 'assistant' | 'system' | 'error';
 
 /**
- * 消息状态类型
+ * 单条消息状态（验收：中断、报错能准确反映到某一条消息）
  */
-export type MessageStatus = 'idle' | 'streaming' | 'done' | 'error';
+export type MessageStatus = 'streaming' | 'done' | 'aborted' | 'error';
 
 /**
- * 统一的消息数据结构
+ * 统一的消息数据结构（验收：不再用纯 string 存消息，UI 只依赖此结构）
  */
 export interface Message {
   id: string;
@@ -36,9 +36,15 @@ export interface UseChatConfig {
 
 /**
  * useChat 返回接口
+ *
+ * 验收（消息数组与流式 buffer 拆分）：
+ * - messages：历史消息（稳定），流式中不写入，生成完成后才追加
+ * - streamingMessage：当前生成中的一条消息（流式 buffer），生成结束置为 null
  */
 export interface UseChatReturn {
+  /** 历史消息，流式过程中不污染 */
   messages: Message[];
+  /** 当前生成中的消息，仅用于展示；完成后会并入 messages 并置为 null */
   streamingMessage: Message | null;
   /** 全局对话状态，UI loading/禁用均由此派生 */
   status: ChatStatus;

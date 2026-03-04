@@ -1,29 +1,24 @@
-import { useRef, useEffect } from 'react';
-import { ChatBubble } from './ChatBubble';
-import { ChatInput } from './ChatInput';
+import { MessageList } from './MessageList';
+import { InputBox } from './InputBox';
 import type { Message, ChatStatus } from '../types';
 
 export interface ChatContainerProps {
   messages: Message[];
   streamingMessage: Message | null;
-  /** 全局对话状态，UI loading/禁用均由此派生 */
   status: ChatStatus;
   lastErrorMessage: string | null;
   onSendMessage: (content: string) => void;
   onCancel?: () => void;
   streamMode: boolean;
   onStreamModeChange: (enabled: boolean) => void;
-  /** 额外禁用条件（如未配置 API Key） */
   disabled?: boolean;
 }
 
-/** 输入区是否应禁用：由全局 status 派生 */
 function isInputDisabled(disabled?: boolean, status?: ChatStatus): boolean {
   if (disabled) return true;
   return status === 'requesting' || status === 'streaming';
 }
 
-/** 是否显示加载中：由全局 status 派生 */
 function isLoading(status: ChatStatus): boolean {
   return status === 'requesting';
 }
@@ -39,7 +34,6 @@ export function ChatContainer({
   onStreamModeChange,
   disabled
 }: ChatContainerProps) {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const displayMessages = [
     ...messages,
     ...(streamingMessage ? [streamingMessage] : [])
@@ -48,10 +42,6 @@ export function ChatContainer({
   const inputDisabled = isInputDisabled(disabled, status);
   const showLoading = isLoading(status);
   const showCancel = status === 'streaming' && onCancel;
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streamingMessage]);
 
   return (
     <div className="chat-container">
@@ -83,26 +73,10 @@ export function ChatContainer({
       )}
 
       <div className="messages-area">
-        <div className="messages-list">
-          {displayMessages.length === 0 ? (
-            <WelcomeMessage />
-          ) : (
-            <>
-              {displayMessages.map((msg) => (
-                <ChatBubble
-                  key={msg.id}
-                  role={msg.role}
-                  content={msg.content}
-                  isStreaming={msg.status === 'streaming'}
-                />
-              ))}
-            </>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+        <MessageList messages={displayMessages} emptyContent={<WelcomeMessage />} />
       </div>
 
-      <ChatInput
+      <InputBox
         onSend={onSendMessage}
         disabled={inputDisabled}
         loading={showLoading}

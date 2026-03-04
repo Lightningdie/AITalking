@@ -1,0 +1,138 @@
+---
+description: "TypeScript/JavaScript 代码风格与命名规范"
+globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
+alwaysApply: true
+---
+
+# 代码风格和命名规范
+
+## 环境与文件
+
+- [强制] TypeScript 用 `.ts`，含 JSX 用 `.tsx`
+- [建议] tsconfig 开启 `strict`、`noImplicitReturns`、`noUnusedLocals`、`allowSyntheticDefaultImports`
+- [强制] 同一模块路径只 import 一次；优先 `import type` 做类型导入
+
+```typescript
+// good
+import React, { PureComponent } from 'react';
+import type { ButtonProps } from './types';
+
+// bad
+import * as React from 'react';
+import React from 'react';
+import { PureComponent } from 'react';
+```
+
+- **文件命名**：类/组件 PascalCase（`Line.ts`、`PageNumber.ts`）；工具 PascalCase；常量 camelCase（`constants.ts`）
+- **Import 分组**：组间空一行，顺序从远到近，例如 3rdparty → 项目内/相对路径；相对路径放最后；文件末尾保留一空行
+
+## 命名规范
+
+- [强制] **接口、类型别名、枚举、类**：PascalCase
+- [强制] **函数、变量、属性**：camelCase；**常量**：UPPER_SNAKE_CASE
+- [强制] **参数与变量首字符不用 `_`**；TS 私有用 `private` 修饰符，不依赖下划线前缀
+- 布尔用 `is`/`has`/`can` 前缀；取值用 `get`；设值用 `set`；命名尽量完整单词、少缩写
+
+```typescript
+// good
+interface ButtonProps { /* ... */ }
+type HeaderProps = HeaderStateProps & HeaderDispatchProps;
+
+// good
+const enum Directions { UP, DOWN, LEFT, RIGHT }
+
+// bad
+enum Directions { UP, DOWN }  // 优先 const enum
+```
+
+## 类型与语言用法
+
+- [强制] 基本类型用 `string`/`number`/`boolean`，不用 `String`/`Number`/`Boolean`；不用 `Object`/`Function` 声明类型
+- [强制] 简单数组用 `T[]`，复杂用 `Array<T>`；只读用 `ReadonlyArray<T>`
+- [强制] 不用 `!` 断言非空，用判空或可选链；类型转换用 `as`，不用 `<>`
+- [建议] 能推导则不写类型；避免 `any`；接口不空；同一重载声明相邻
+- [建议] 使用 `undefined`，尽量不使用 `null`（除非与 DOM/第三方约定）
+
+```typescript
+// good
+let str: string;
+let files: string[];
+let root = document.getElementById('root') as HTMLDivElement;
+if (foo?.bar?.baz) { /* ... */ }
+
+// bad
+let str: String;
+let files: Array<string>;
+if (foo!.bar!.baz) { /* ... */ }
+```
+
+- [强制] 相等用 `===`/`!==`
+- [强制] 默认 `const`，需重绑定用 `let`；少用 `var`
+- [强制] 避免 `return undefined`，直接 `return`
+- [建议] 遍历对象用 `Object.keys`/`Object.values`/`Object.entries`，慎用 `for..in`
+
+## 数组与对象
+
+- [强制] 数组浅拷贝、类数组转数组用 `...`，不用 `slice`/`Array.from`
+- [强制] 对象浅拷贝用 `...`，不用 `Object.assign`
+
+```typescript
+// good
+const copies = [...items];
+const elements = [...document.querySelectorAll('.foo')];
+this.setState(s => ({ ...s, clicked: true }));
+
+// bad
+const copies = items.slice();
+const elements = Array.from(document.querySelectorAll('.foo'));
+this.setState(s => Object.assign({}, s, { clicked: true }));
+```
+
+## 函数与类
+
+- [强制] 单方法不宜过长；复杂逻辑拆成小函数；参数超过 3 个考虑对象参数
+- [建议] 每文件最多一个类；类成员间空行；`public` 可不写；无逻辑的构造函数可省略
+- [建议] 构造函数里用参数属性，作为属性的参数放前面
+
+```typescript
+// good
+function foo(bar: boolean) {
+  if (!bar) return;
+}
+
+// good
+class AppComponent {
+  constructor(private readonly heroService: HeroService) {}
+}
+
+// bad
+function foo(bar: boolean) {
+  if (!bar) return undefined;
+}
+```
+
+- **可选 / 项目特定**：若项目要求对成员方法做混淆（如 luoshu-writer），可约定后缀（如 `_ls19`），否则不采用。
+
+## 代码格式与注释
+
+- 缩进 2 空格；操作符与逗号后加空格；空行无缩进
+- 单行建议不超过 120 字符，过长换行
+- 公共 API 用 JSDoc；复杂逻辑加行内注释；TODO 需写原因或计划
+
+## 类结构顺序
+
+1. 静态属性 → 实例属性 → 构造函数 → 公共方法 → 私有方法  
+2. 成员之间空行分隔
+
+## 命名示例
+
+```typescript
+// ✅ 清晰、简洁
+isValid();
+getContentHeight();
+isLeadingSpace();
+
+// ❌ 含糊或过长
+check();
+isSpacesInFrontOfStartContent();
+```
