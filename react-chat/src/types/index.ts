@@ -32,6 +32,11 @@ export interface UseChatConfig {
   model: string;
   provider?: 'zhipu' | 'spark';
   contextLength?: number;
+  /** 上下文 token 上限，用于统计与超限预警，默认 128000 */
+  contextTokenLimit?: number;
+  tokenWarningThreshold?: number;
+  /** 是否将 system 消息纳入上下文，默认 true；设为 false 即“移除 system 消息”策略 */
+  includeSystemInContext?: boolean;
 }
 
 /**
@@ -63,6 +68,11 @@ export interface UseChatReturn {
   cancel: () => void;
   clear: () => void;
   addError: (message: string) => void;
+  /** 当前上下文估算 token 数（每轮对话前计算） */
+  contextTokens: number;
+  tokenWarningReached: boolean;
+  /** 当前会发给模型的上下文消息（只读，用于可视化） */
+  contextMessages: Message[];
 }
 
 /**
@@ -74,3 +84,6 @@ export interface TokenStats {
   totalTokens: number;
   turnCount: number;
 }
+
+export type { ChatRequestParams, ChatResponse, UsagePayload } from './api';
+export { ApiError } from './api';

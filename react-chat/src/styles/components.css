@@ -405,12 +405,102 @@
   color: var(--color-text-muted);
 }
 
+.config-section--checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.config-section--checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent-blue);
+}
+
+/* ===== 上下文预览（将发给模型的消息列表） ===== */
+.context-preview {
+  margin-bottom: 20px;
+  padding: 12px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.context-preview__title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin: 0 0 6px 0;
+}
+
+.context-preview__hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0 0 10px 0;
+}
+
+.context-preview__empty {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 0 0 10px 0;
+}
+
+.context-preview__list {
+  list-style: none;
+  margin: 0 0 10px 0;
+  padding: 0;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.context-preview__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.8rem;
+}
+
+.context-preview__item:last-child {
+  border-bottom: none;
+}
+
+.context-preview__role {
+  flex-shrink: 0;
+}
+
+.context-preview__content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+.context-preview__clear {
+  margin-top: 8px;
+  font-size: 0.85rem;
+}
+
 /* ===== Stats ===== */
 .stats-card {
   background: var(--color-bg-tertiary);
   border-radius: var(--radius-md);
   padding: 16px;
   margin-bottom: 20px;
+}
+
+.stats-card--context .token-warning {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(248, 180, 0, 0.12);
+  border: 1px solid var(--color-accent-orange, #e67e22);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--color-text-primary);
 }
 
 .stats-card__title {

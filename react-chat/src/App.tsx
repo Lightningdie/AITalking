@@ -10,6 +10,10 @@ function App() {
   const [apiKey, setApiKey] = useLocalStorage('ai_api_key', '');
   const [model, setModel] = useLocalStorage('ai_model', 'glm-4.5-flash');
   const [contextLength, setContextLength] = useLocalStorage('context_length', 10);
+  const [includeSystemInContext, setIncludeSystemInContext] = useLocalStorage(
+    'context_include_system',
+    true
+  );
   const [streamMode, setStreamMode] = useState(true);
 
   const {
@@ -24,8 +28,19 @@ function App() {
     exportToMarkdown,
     cancel,
     clear,
-    addError
-  } = useChat({ apiKey, model, provider, contextLength });
+    addError,
+    contextTokens,
+    tokenWarningReached,
+    contextMessages
+  } = useChat({
+    apiKey,
+    model,
+    provider,
+    contextLength,
+    contextTokenLimit: 128000,
+    tokenWarningThreshold: 0.8,
+    includeSystemInContext
+  });
 
   const handleSendMessage = useCallback(
     async (content: string) => {
@@ -67,6 +82,13 @@ function App() {
         hasMessages={messages.length > 0}
         isOffline={isOffline}
         status={status}
+        contextTokens={contextTokens}
+        tokenWarningReached={tokenWarningReached}
+        contextTokenLimit={128000}
+        tokenWarningThreshold={0.8}
+        contextMessages={contextMessages}
+        includeSystemInContext={includeSystemInContext}
+        onIncludeSystemInContextChange={setIncludeSystemInContext}
       />
 
       <ChatContainer

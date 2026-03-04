@@ -1,4 +1,4 @@
-import type { TokenStats, ChatStatus } from '../types';
+import type { TokenStats, ChatStatus, Message } from '../types';
 
 const PROVIDERS = {
   zhipu: {
@@ -40,8 +40,18 @@ export interface SidebarProps {
   onExport: () => void;
   hasMessages: boolean;
   isOffline: boolean;
-  /** 全局对话状态，导出/清空按钮禁用由此派生 */
   status: ChatStatus;
+  /** 当前上下文估算 token 数 */
+  contextTokens: number;
+  /** 是否达到预警阈值（如 80%） */
+  tokenWarningReached: boolean;
+  contextTokenLimit?: number;
+  tokenWarningThreshold?: number;
+  /** 当前会发给模型的上下文消息（用于可视化） */
+  contextMessages: Message[];
+  /** 是否将 system 纳入上下文 */
+  includeSystemInContext?: boolean;
+  onIncludeSystemInContextChange?: (value: boolean) => void;
 }
 
 export function Sidebar({
@@ -58,7 +68,14 @@ export function Sidebar({
   onExport,
   hasMessages,
   isOffline,
-  status
+  status,
+  contextTokens,
+  tokenWarningReached,
+  contextTokenLimit = 128000,
+  tokenWarningThreshold = 0.8,
+  contextMessages,
+  includeSystemInContext = true,
+  onIncludeSystemInContextChange
 }: SidebarProps) {
   const actionDisabled = status === 'requesting' || status === 'streaming';
   const currentProvider = PROVIDERS[provider] ?? PROVIDERS.zhipu;
@@ -147,6 +164,25 @@ export function Sidebar({
           </div>
         </div>
 
+        <div className="stats-card stats-card--context">
+          <h3 className="stats-card__title">📐 上下文 Token</h3>
+          <div className="stats-grid">
+            <div className="stats-item">
+              <span className="stats-item__label">当前估算</span>
+              <span className="stats-item__value">{contextTokens.toLocaleString()}</span>
+            </div>
+            <div className="stats-item">
+              <span className="stats-item__label">上限</span>
+              <span className="stats-item__value">{contextTokenLimit.toLocaleString()}</span>
+            </div>
+          </div>
+          {tokenWarningReached && (
+            <div className="token-warning" role="alert">
+              ⚠️ 上下文已达 {Math.round(tokenWarningThreshold * 100)}%，建议清空或减少轮数，避免超限报错
+            </div>
+          )}
+        </div>
+
         <div className="config-section">
           <label className="config-section__label">💬 上下文轮数</label>
           <input
@@ -157,7 +193,49 @@ export function Sidebar({
             min={1}
             max={50}
           />
-          <small className="config-section__hint">保留最近 N 轮对话作为上下文</small>
+          <small className="config-section__hint">只保留最近 N 轮对话作为上下文</small>
+        </div>
+
+        {onIncludeSystemInContextChange && (
+          <label className="config-section config-section--checkbox">
+            <input
+              type="checkbox"
+              checked={includeSystemInContext}
+              onChange={(e) => onIncludeSystemInContextChange(e.target.checked)}
+            />
+            <span className="config-section__label">上下文包含 system 消息</span>
+          </label>
+        )}
+
+        <div className="context-preview">
+          <h3 className="context-preview__title">📋 当前上下文（将发给模型）</h3>
+          <p className="context-preview__hint">以下 {contextMessages.length} 条消息会在下次请求时作为上下文发送</p>
+          {contextMessages.length === 0 ? (
+            <p className="context-preview__empty">暂无，发送一条消息后此处会显示</p>
+          ) : (
+            <ul className="context-preview__list">
+              {contextMessages.map((msg) => (
+                <li key={msg.id} className="context-preview__item">
+                  <span className="context-preview__role">
+                    {msg.role === 'user' ? '👤' : msg.role === 'assistant' ? '🤖' : '⚙️'}
+                  </span>
+                  <span className="context-preview__content" title={msg.content}>
+                    {msg.content.slice(0, 50)}
+                    {msg.content.length > 50 ? '…' : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            className="btn btn--ghost btn--full context-preview__clear"
+            onClick={onClear}
+            disabled={actionDisabled}
+            title="清空后上下文为空，下次发送将无历史"
+          >
+            🗑️ 一键清空上下文
+          </button>
         </div>
       </div>
 
@@ -175,7 +253,7 @@ export function Sidebar({
           className="btn btn--ghost btn--full"
           onClick={onClear}
           disabled={actionDisabled}
-          title={actionDisabled ? '请求进行中时不可用' : undefined}
+          title={actionDisabled ? '请求进行中时不可用' : '清空对话与上下文'}
         >
           🗑️ 清空对话
         </button>

@@ -6,24 +6,30 @@ export interface CodeBlockProps {
   language?: string;
 }
 
+/** 代码块展示与复制；使用 highlight.js 高亮，仅接收已闭合的代码块内容 */
 export function CodeBlock({ code, language = '' }: CodeBlockProps) {
   const codeRef = useRef<HTMLElement>(null);
   const [copied, setCopied] = useState(false);
 
+  /* 仅闭合的 ```...``` 会进入本组件。空代码不调 hljs；hljs 异常时回退纯文本并保留 hljs 类，避免流式/高亮报错 */
   useEffect(() => {
-    if (codeRef.current && code) {
-      codeRef.current.removeAttribute('data-highlighted');
-
+    if (!codeRef.current) return;
+    codeRef.current.removeAttribute('data-highlighted');
+    if (!code.trim()) {
+      codeRef.current.textContent = '';
+      return;
+    }
+    try {
       if (language) {
-        try {
-          const result = hljs.highlight(code, { language });
-          codeRef.current.innerHTML = result.value;
-        } catch {
-          hljs.highlightElement(codeRef.current);
-        }
+        const result = hljs.highlight(code, { language });
+        codeRef.current.innerHTML = result.value;
+        codeRef.current.classList.add('hljs');
       } else {
         hljs.highlightElement(codeRef.current);
       }
+    } catch {
+      codeRef.current.textContent = code;
+      codeRef.current.classList.add('hljs');
     }
   }, [code, language]);
 
@@ -50,7 +56,10 @@ export function CodeBlock({ code, language = '' }: CodeBlockProps) {
       </div>
       <div className="code-block__content">
         <pre>
-          <code ref={codeRef} className={language ? `language-${language}` : ''}>
+          <code
+            ref={codeRef}
+            className={language ? `language-${language} hljs` : 'hljs'}
+          >
             {code}
           </code>
         </pre>

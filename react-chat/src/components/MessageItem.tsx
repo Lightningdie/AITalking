@@ -21,7 +21,7 @@ function getAvatar(role: MessageRole): string {
 }
 
 function getStatusHint(messageStatus?: MessageStatus, role?: MessageRole): string | null {
-  if (messageStatus === 'aborted') return '已停止';
+  if (messageStatus === 'aborted') return '已中断';
   if (messageStatus === 'error' && role === 'assistant') return '请求失败';
   return null;
 }

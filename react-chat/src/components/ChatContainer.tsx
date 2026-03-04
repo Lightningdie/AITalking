@@ -1,6 +1,9 @@
+import { useRef, useEffect } from 'react';
 import { MessageList } from './MessageList';
 import { InputBox } from './InputBox';
 import type { Message, ChatStatus } from '../types';
+
+const SCROLL_BOTTOM_THRESHOLD = 80;
 
 export interface ChatContainerProps {
   messages: Message[];
@@ -23,6 +26,11 @@ function isLoading(status: ChatStatus): boolean {
   return status === 'requesting';
 }
 
+function isNearBottom(el: HTMLElement): boolean {
+  const { scrollTop, scrollHeight, clientHeight } = el;
+  return scrollHeight - scrollTop - clientHeight < SCROLL_BOTTOM_THRESHOLD;
+}
+
 export function ChatContainer({
   messages,
   streamingMessage,
@@ -38,6 +46,24 @@ export function ChatContainer({
     ...messages,
     ...(streamingMessage ? [streamingMessage] : [])
   ];
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const userAtBottomRef = useRef(true);
+
+  useEffect(() => {
+    if (!userAtBottomRef.current) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    el.scrollTo({
+      top: el.scrollHeight - el.clientHeight,
+      behavior: 'smooth'
+    });
+  }, [displayMessages]);
+
+  const handleScroll = () => {
+    const el = scrollContainerRef.current;
+    if (el) userAtBottomRef.current = isNearBottom(el);
+  };
 
   const inputDisabled = isInputDisabled(disabled, status);
   const showLoading = isLoading(status);
@@ -72,7 +98,11 @@ export function ChatContainer({
         </div>
       )}
 
-      <div className="messages-area">
+      <div
+        ref={scrollContainerRef}
+        className="messages-area"
+        onScroll={handleScroll}
+      >
         <MessageList messages={displayMessages} emptyContent={<WelcomeMessage />} />
       </div>
 
