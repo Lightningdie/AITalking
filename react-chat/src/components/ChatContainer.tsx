@@ -14,13 +14,14 @@ export interface ChatContainerProps {
   lastErrorMessage: string | null;
   onSendMessage: (content: string) => void;
   onCancel?: () => void;
+  onRetry?: (messageId: string) => void;
   streamMode: boolean;
   onStreamModeChange: (enabled: boolean) => void;
-  disabled?: boolean;
+  /** 仅禁用发送按钮（如未填 API Key），输入框仍可聚焦 */
+  sendDisabled?: boolean;
 }
 
-function isInputDisabled(disabled?: boolean, status?: ChatStatus): boolean {
-  if (disabled) return true;
+function isInputDisabled(status?: ChatStatus): boolean {
   return status === 'requesting' || status === 'streaming';
 }
 
@@ -40,9 +41,10 @@ export function ChatContainer({
   lastErrorMessage,
   onSendMessage,
   onCancel,
+  onRetry,
   streamMode,
   onStreamModeChange,
-  disabled
+  sendDisabled
 }: ChatContainerProps) {
   const displayMessages = [
     ...messages,
@@ -67,7 +69,7 @@ export function ChatContainer({
     if (el) userAtBottomRef.current = isNearBottom(el);
   };
 
-  const inputDisabled = isInputDisabled(disabled, status);
+  const inputDisabled = isInputDisabled(status);
   const showLoading = isLoading(status);
   const showCancel = status === 'streaming' && onCancel;
 
@@ -109,12 +111,14 @@ export function ChatContainer({
             messages={displayMessages}
             emptyContent={<WelcomeMessage />}
             virtualThreshold={MESSAGE_VIRTUAL_THRESHOLD}
+            onRetry={onRetry}
           />
       </div>
 
       <InputBox
         onSend={onSendMessage}
         disabled={inputDisabled}
+        sendDisabled={sendDisabled}
         loading={showLoading}
       />
     </div>

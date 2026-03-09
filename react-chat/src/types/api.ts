@@ -33,15 +33,22 @@ export interface ChatResponse {
   usage?: UsagePayload;
 }
 
-/** 统一错误格式：code 可用于后续按错误类型分支，message 展示给用户 */
+/** 错误分类：用于 UI 展示不同提示语 */
+export type ErrorCategory = 'network' | 'auth' | 'rate_limit' | 'model' | 'param' | 'unknown';
+
+/** 统一错误格式：code 用于按错误类型分支，category 用于 UI 分类提示，retryable 标记是否可重试 */
 export class ApiError extends Error {
   code: string;
   message: string;
+  category: ErrorCategory;
+  retryable: boolean;
 
-  constructor(code: string, message: string) {
+  constructor(code: string, message: string, category: ErrorCategory = 'unknown', retryable = false) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
     this.message = message;
+    this.category = category;
+    this.retryable = retryable;
   }
 }

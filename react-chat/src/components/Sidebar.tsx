@@ -25,8 +25,10 @@ const PROVIDERS = {
 } as const;
 
 export type ProviderKey = keyof typeof PROVIDERS;
+export { PROVIDERS };
 
 export interface SidebarProps {
+  className?: string;
   provider: ProviderKey;
   onProviderChange: (provider: ProviderKey) => void;
   apiKey: string;
@@ -35,24 +37,25 @@ export interface SidebarProps {
   onModelChange: (value: string) => void;
   contextLength: number;
   onContextLengthChange: (value: number) => void;
+  temperature: number;
+  onTemperatureChange: (value: number) => void;
+  maxTokens: number;
+  onMaxTokensChange: (value: number) => void;
+  systemPrompt: string;
+  onSystemPromptChange: (value: string) => void;
   stats: TokenStats;
   onClear: () => void;
   onExport: () => void;
   hasMessages: boolean;
   isOffline: boolean;
   status: ChatStatus;
-  /** 当前上下文估算 token 数 */
   contextTokens: number;
-  /** 是否达到预警阈值（如 80%） */
   tokenWarningReached: boolean;
   contextTokenLimit?: number;
   tokenWarningThreshold?: number;
-  /** 当前会发给模型的上下文消息（用于可视化） */
   contextMessages: Message[];
-  /** 是否将 system 纳入上下文 */
   includeSystemInContext?: boolean;
   onIncludeSystemInContextChange?: (value: boolean) => void;
-  /** 会话管理（可选） */
   sessions?: SessionMeta[];
   currentSessionId?: string;
   onCreateSession?: () => void;
@@ -61,6 +64,7 @@ export interface SidebarProps {
 }
 
 export function Sidebar({
+  className,
   provider,
   onProviderChange,
   apiKey,
@@ -69,6 +73,12 @@ export function Sidebar({
   onModelChange,
   contextLength,
   onContextLengthChange,
+  temperature,
+  onTemperatureChange,
+  maxTokens,
+  onMaxTokensChange,
+  systemPrompt,
+  onSystemPromptChange,
   stats,
   onClear,
   onExport,
@@ -100,8 +110,15 @@ export function Sidebar({
     }
   };
 
+  const tokenRatio = contextTokenLimit > 0 ? contextTokens / contextTokenLimit : 0;
+  const tokenPercent = Math.min(100, Math.round(tokenRatio * 100));
+  const progressColor =
+    tokenRatio >= 0.8 ? 'var(--color-accent-red)' :
+    tokenRatio >= 0.5 ? 'var(--color-accent-orange, #e67e22)' :
+    'var(--color-accent-green)';
+
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${className ?? ''}`}>
       <div className="sidebar__header">
         <h1 className="sidebar__logo">🤖 AI Chat</h1>
         {isOffline && <div className="offline-badge">📡 离线</div>}
@@ -173,6 +190,8 @@ export function Sidebar({
             className="config-section__select"
             value={provider}
             onChange={(e) => handleProviderChange(e.target.value)}
+            disabled={actionDisabled}
+            title={actionDisabled ? '请先停止生成' : undefined}
           >
             <option value="zhipu">智谱 AI</option>
             <option value="spark">讯飞星火</option>
@@ -197,6 +216,8 @@ export function Sidebar({
             className="config-section__select"
             value={model}
             onChange={(e) => onModelChange(e.target.value)}
+            disabled={actionDisabled}
+            title={actionDisabled ? '请先停止生成' : undefined}
           >
             {currentProvider.models.map((m) => (
               <option key={m.value} value={m.value}>
@@ -204,6 +225,48 @@ export function Sidebar({
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="config-section">
+          <label className="config-section__label">
+            🌡️ Temperature: {temperature.toFixed(1)}
+          </label>
+          <input
+            type="range"
+            className="config-section__range"
+            value={temperature}
+            onChange={(e) => onTemperatureChange(Number(e.target.value))}
+            min={0}
+            max={2}
+            step={0.1}
+          />
+          <small className="config-section__hint">越高越随机，越低越确定</small>
+        </div>
+
+        <div className="config-section">
+          <label className="config-section__label">📏 最大 Token 数</label>
+          <input
+            type="number"
+            className="config-section__input"
+            value={maxTokens}
+            onChange={(e) => onMaxTokensChange(Number(e.target.value))}
+            min={1}
+            max={128000}
+            step={256}
+          />
+          <small className="config-section__hint">模型单次回复的最大长度</small>
+        </div>
+
+        <div className="config-section">
+          <label className="config-section__label">📝 系统提示词</label>
+          <textarea
+            className="config-section__textarea"
+            value={systemPrompt}
+            onChange={(e) => onSystemPromptChange(e.target.value)}
+            placeholder="可选：设定 AI 的角色或行为，如「你是一个专业的前端工程师」"
+            rows={3}
+          />
+          <small className="config-section__hint">作为 system 消息发送给模型</small>
         </div>
 
         <div className="stats-card">
@@ -241,6 +304,15 @@ export function Sidebar({
               <span className="stats-item__label">上限</span>
               <span className="stats-item__value">{contextTokenLimit.toLocaleString()}</span>
             </div>
+          </div>
+          <div className="token-progress">
+            <div className="token-progress__bar">
+              <div
+                className="token-progress__fill"
+                style={{ width: `${tokenPercent}%`, background: progressColor }}
+              />
+            </div>
+            <span className="token-progress__label">{tokenPercent}%</span>
           </div>
           {tokenWarningReached && (
             <div className="token-warning" role="alert">

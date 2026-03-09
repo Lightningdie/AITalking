@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { MessageContent } from './MessageContent';
-import type { MessageRole, MessageStatus } from '../types';
+import type { MessageRole, MessageStatus, ErrorCategory } from '../types';
 
 /** 纯展示：仅根据 props 渲染气泡，无业务/流式逻辑 */
 export interface MessageItemProps {
@@ -8,6 +8,9 @@ export interface MessageItemProps {
   content: string;
   isStreaming?: boolean;
   messageStatus?: MessageStatus;
+  retryable?: boolean;
+  errorCategory?: ErrorCategory;
+  onRetry?: () => void;
 }
 
 function getRoleClass(role: MessageRole): string {
@@ -30,14 +33,18 @@ export const MessageItem = memo(function MessageItem({
   role,
   content,
   isStreaming = false,
-  messageStatus
+  messageStatus,
+  retryable,
+  errorCategory,
+  onRetry
 }: MessageItemProps) {
   const roleClass = getRoleClass(role);
   const avatar = getAvatar(role);
   const statusHint = getStatusHint(messageStatus, role);
+  const isError = messageStatus === 'error';
 
   return (
-    <div className={`message-item message-item--${roleClass}`}>
+    <div className={`message-item message-item--${roleClass}${isError ? ' message-item--error' : ''}`}>
       <div className="message-item__avatar">{avatar}</div>
       <div className="message-item__content">
         {isStreaming && !content ? (
@@ -50,6 +57,29 @@ export const MessageItem = memo(function MessageItem({
               <span className="message-item__status-hint" aria-label={statusHint}>
                 {statusHint}
               </span>
+            )}
+            {isError && (
+              <div className="message-item__error-bar">
+                {errorCategory && (
+                  <span className={`message-item__error-tag message-item__error-tag--${errorCategory}`}>
+                    {errorCategory === 'network' && '网络'}
+                    {errorCategory === 'auth' && '认证'}
+                    {errorCategory === 'rate_limit' && '频率'}
+                    {errorCategory === 'model' && '模型'}
+                    {errorCategory === 'param' && '参数'}
+                    {errorCategory === 'unknown' && '错误'}
+                  </span>
+                )}
+                {retryable && onRetry && (
+                  <button
+                    type="button"
+                    className="btn message-item__retry-btn"
+                    onClick={onRetry}
+                  >
+                    🔄 重试
+                  </button>
+                )}
+              </div>
             )}
           </>
         )}

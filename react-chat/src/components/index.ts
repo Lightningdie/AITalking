@@ -5,3 +5,4 @@ export { MessageList } from './MessageList';
 export { CodeBlock } from './CodeBlock';
 export { MessageContent } from './MessageContent';
 export { Sidebar } from './Sidebar';
+export { SwitchModelConfirmModal } from './SwitchModelConfirmModal';

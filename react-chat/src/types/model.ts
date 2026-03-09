@@ -30,3 +30,16 @@ export interface ModelCallbacks {
   onComplete: (usage?: ModelUsage) => void;
   onError: (error: Error) => void;
 }
+
+/** 适配层选项（由 modelService 传入，不暴露给 UI） */
+export interface RequestModelOptions {
+  signal?: AbortSignal;
+  apiKey?: string;
+}
+
+/** Adapter 适配器：新模型 = 新 adapter 文件，实现后注册即可，原有代码 0 改动 */
+export type ModelAdapter = (
+  params: ModelRequestParams,
+  callbacks: ModelCallbacks,
+  options?: RequestModelOptions
+) => Promise<void>;

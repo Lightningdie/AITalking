@@ -2,15 +2,18 @@ import { useState, useRef, useEffect } from 'react';
 
 export interface InputBoxProps {
   onSend: (content: string) => void;
+  /** 禁用整个输入区域（如正在请求中） */
   disabled?: boolean;
+  /** 仅禁用发送按钮（如未填 API Key），输入框仍可聚焦输入 */
+  sendDisabled?: boolean;
   loading?: boolean;
   placeholder?: string;
 }
 
-/** 仅负责输入与提交 UI，禁用/loading 由外部传入 */
 export function InputBox({
   onSend,
   disabled,
+  sendDisabled,
   loading = false,
   placeholder = '输入消息... (Shift+Enter 换行)'
 }: InputBoxProps) {
@@ -25,9 +28,11 @@ export function InputBox({
     }
   }, [value]);
 
+  const canSend = !disabled && !sendDisabled;
+
   const handleSubmit = () => {
     const trimmed = value.trim();
-    if (trimmed && !disabled) {
+    if (trimmed && canSend) {
       onSend(trimmed);
       setValue('');
     }
@@ -56,7 +61,7 @@ export function InputBox({
         <button
           className="send-button"
           onClick={handleSubmit}
-          disabled={disabled || !value.trim()}
+          disabled={!canSend || !value.trim()}
           aria-busy={loading}
           aria-label={loading ? '请求中' : '发送'}
         >

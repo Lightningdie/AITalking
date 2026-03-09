@@ -1,3 +1,5 @@
+import type { ErrorCategory } from './api';
+
 /**
  * 全局对话状态（UI 的 loading / 禁用全部由此派生）
  */
@@ -22,6 +24,10 @@ export interface Message {
   content: string;
   status: MessageStatus;
   createdAt: number;
+  /** 该消息是否可重试（仅 status === 'error' 时有意义） */
+  retryable?: boolean;
+  /** 错误分类（仅 status === 'error' 时有意义） */
+  errorCategory?: ErrorCategory;
 }
 
 /**
@@ -36,6 +42,11 @@ export interface UseChatConfig {
   contextTokenLimit?: number;
   tokenWarningThreshold?: number;
   includeSystemInContext?: boolean;
+  /** 模型参数：temperature / maxTokens，由模型状态管理提供 */
+  temperature?: number;
+  maxTokens?: number;
+  /** 自定义系统提示词，作为首条 system 消息注入上下文 */
+  systemPrompt?: string;
   /** 当前会话 ID，切换时 useChat 会据此重置消息状态 */
   sessionId?: string;
   /** 当前会话的初始消息（从本地存储加载），随 sessionId 一起传入 */
@@ -71,6 +82,8 @@ export interface UseChatReturn {
   cancel: () => void;
   clear: () => void;
   addError: (message: string) => void;
+  /** 单条消息重试：使用原 messages 上下文重新请求，不重复插入 user 消息 */
+  retryAndResend: (messageId: string, streamMode: boolean) => void;
   /** 当前上下文估算 token 数（每轮对话前计算） */
   contextTokens: number;
   tokenWarningReached: boolean;
@@ -107,6 +120,13 @@ export interface SessionMeta {
   updatedAt: number;
 }
 
-export type { ChatRequestParams, ChatResponse, UsagePayload } from './api';
+export type { ChatRequestParams, ChatResponse, UsagePayload, ErrorCategory } from './api';
 export { ApiError } from './api';
-export type { ModelRequestParams, ModelCallbacks, ModelMessage, ModelUsage } from './model';
+export type {
+  ModelRequestParams,
+  ModelCallbacks,
+  ModelMessage,
+  ModelUsage,
+  RequestModelOptions,
+  ModelAdapter
+} from './model';

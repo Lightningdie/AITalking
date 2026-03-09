@@ -452,9 +452,18 @@ function parseSegmentWithLinks(segment: string, keyBase: number): ReactNode {
   return <span key={keyBase}>{parts}</span>;
 }
 
+function escapeHtml(raw: string): string {
+  return raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /** **粗体**、__粗体__、*斜体*、_斜体_、~~删除线~~ */
 function formatInlineBoldItalic(text: string, key: string): ReactNode {
-  let result = text;
+  let result = escapeHtml(text);
   result = result.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   result = result.replace(/__([^_]+)__/g, '<strong>$1</strong>');
   result = result.replace(/\~\~([^~]+)\~\~/g, '<del>$1</del>');
@@ -468,7 +477,7 @@ function formatInlineBoldItalic(text: string, key: string): ReactNode {
   ) {
     return <span key={key} dangerouslySetInnerHTML={{ __html: result }} />;
   }
-  return result;
+  return text;
 }
 
 export default MessageContent;

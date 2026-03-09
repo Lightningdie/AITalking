@@ -1,14 +1,9 @@
 /**
- * 统一模型协议实现：唯一与 fetch/API 交互的入口，UI 与 useChat 只依赖 ModelRequestParams + ModelCallbacks
+ * 统一模型请求入口：仅做适配器分发，不包含具体请求逻辑
+ * 新模型 = 新 adapter 文件 + adapters/index 注册，本文件 0 改动
  */
-import type { ModelRequestParams, ModelCallbacks, ModelUsage } from '../types/model';
-import type { ChatRequestParams } from '../types/api';
-import { sendStream, sendNonStream } from './chatService';
-
-export interface RequestModelOptions {
-  signal?: AbortSignal;
-  apiKey?: string;
-}
+import type { ModelRequestParams, ModelCallbacks, RequestModelOptions } from '../types/model';
+import { getAdapter } from '../adapters';
 
 const MODEL_ID_SEP = ':';
 
@@ -23,52 +18,16 @@ function parseModelId(modelId: string): { provider: string; model: string } {
   };
 }
 
-/**
- * 统一模型请求：仅此函数内部调用 chatService（进而调用 fetch），UI 不直接接触网络
- */
+export type { RequestModelOptions } from '../types/model';
+
 export async function requestModel(
   params: ModelRequestParams,
   callbacks: ModelCallbacks,
   options?: RequestModelOptions
 ): Promise<void> {
-  const { modelId, messages, stream = true } = params;
-  const apiKey = options?.apiKey ?? '';
-  const signal = options?.signal;
+  const { modelId } = params;
+  const { provider } = parseModelId(modelId);
+  const adapter = getAdapter(provider);
 
-  const { provider, model } = parseModelId(modelId);
-  const chatParams: ChatRequestParams = {
-    apiKey,
-    model,
-    provider,
-    messages,
-    stream
-  };
-
-  try {
-    if (stream) {
-      let lastUsage: ModelUsage | undefined;
-      await sendStream(
-        chatParams,
-        {
-          onChunk: callbacks.onChunk,
-          onUsage: (usage) => {
-            lastUsage = {
-              prompt_tokens: usage.prompt_tokens,
-              completion_tokens: usage.completion_tokens,
-              total_tokens: usage.total_tokens
-            };
-          }
-        },
-        signal
-      );
-      callbacks.onComplete(lastUsage);
-    } else {
-      const result = await sendNonStream(chatParams, signal);
-      if (result.content) callbacks.onChunk(result.content);
-      callbacks.onComplete(result.usage);
-    }
-  } catch (err) {
-    callbacks.onError(err instanceof Error ? err : new Error(String(err)));
-    throw err;
-  }
+  await adapter(params, callbacks, options);
 }
