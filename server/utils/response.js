@@ -74,7 +74,7 @@ function sendSSEData(res, data, event = null) {
 function handleCORS(res) {
   res.writeHead(200, {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'POST, GET, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type'
   });
   res.end();

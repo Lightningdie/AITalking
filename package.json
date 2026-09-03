@@ -11,9 +11,16 @@
     "all": "concurrently \"npm run start\" \"npm run react\"",
     "install:all": "npm install && cd react-chat && npm install"
   },
-  "keywords": ["sse", "streaming", "typewriter"],
+  "keywords": [
+    "sse",
+    "streaming",
+    "typewriter"
+  ],
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "sql.js": "^1.14.2"
   }
 }

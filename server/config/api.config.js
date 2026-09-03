@@ -4,15 +4,11 @@
 const API_CONFIG = {
   zhipu: {
     name: '智谱',
-    hostname: 'open.bigmodel.cn',
-    path: '/api/paas/v4/chat/completions',
-    defaultModel: 'glm-4.5-flash'
-  },
-  spark: {
-    name: '讯飞星火',
-    hostname: 'spark-api-open.xf-yun.com',
+    protocol: 'http',
+    hostname: '172.16.23.95',
+    port: 3000,
     path: '/v1/chat/completions',
-    defaultModel: 'lite'
+    defaultModel: 'glm-5.3-flash'
   }
 };
 

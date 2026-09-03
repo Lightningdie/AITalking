@@ -88,7 +88,7 @@ async function fetchWithRetry(
 export interface UseChatConfig {
   apiKey: string;
   model: string;
-  provider?: 'zhipu' | 'spark';
+  provider?: 'zhipu';
   contextLength?: number;
 }
 
@@ -113,7 +113,6 @@ export function useChat({
   const [stats, setStats] = useState(initialStats);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  const pendingStreamContentRef = useRef<string>('');
   const rafIdRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -131,19 +130,31 @@ export function useChat({
 
   const getContextMessages = useCallback(() => {
     const maxMessages = contextLength * 2;
-    return messages.slice(-maxMessages);
+    // 只回传 role/content，避免把思考过程等本地字段发给上游
+    return messages.slice(-maxMessages).map(({ role, content }) => ({ role, content }));
   }, [messages, contextLength]);
 
-  const throttledUpdateStreamContent = useCallback((content: string) => {
+  const pendingStreamContentRef = useRef('');
+  const pendingStreamReasoningRef = useRef('');
+
+  const throttledUpdateStream = useCallback((content: string, reasoning: string) => {
     pendingStreamContentRef.current = content;
+    pendingStreamReasoningRef.current = reasoning;
 
     if (rafIdRef.current !== null) {
       cancelAnimationFrame(rafIdRef.current);
     }
 
     rafIdRef.current = requestAnimationFrame(() => {
-      const text = pendingStreamContentRef.current;
-      setStreamingMessage((prev) => (prev ? { ...prev, content: text } : null));
+      setStreamingMessage((prev) =>
+        prev
+          ? {
+              ...prev,
+              content: pendingStreamContentRef.current,
+              reasoningContent: pendingStreamReasoningRef.current || undefined
+            }
+          : null
+      );
       rafIdRef.current = null;
     });
   }, []);
@@ -204,6 +215,7 @@ export function useChat({
         const decoder = new TextDecoder();
         let buffer = '';
         let fullContent = '';
+        let fullReasoning = '';
         let streamError: string | null = null;
 
         try {
@@ -235,13 +247,15 @@ export function useChat({
                 try {
                   const parsed = JSON.parse(data) as {
                     content?: string;
+                    reasoning?: string;
                     usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
                     error?: string;
                   };
 
-                  if (parsed.content) {
-                    fullContent += parsed.content;
-                    throttledUpdateStreamContent(fullContent);
+                  if (parsed.content || parsed.reasoning) {
+                    if (parsed.content) fullContent += parsed.content;
+                    if (parsed.reasoning) fullReasoning += parsed.reasoning;
+                    throttledUpdateStream(fullContent, fullReasoning);
                   }
 
                   if (parsed.usage) {
@@ -281,7 +295,12 @@ export function useChat({
             if (fullContent) {
               setMessages((prev) => [
                 ...prev,
-                { ...assistantMessage, content: fullContent, status: 'done' }
+                {
+                  ...assistantMessage,
+                  content: fullContent,
+                  reasoningContent: fullReasoning || undefined,
+                  status: 'done'
+                }
               ]);
             }
             setStreamingMessage(null);
@@ -302,7 +321,12 @@ export function useChat({
             const contentWithWarning = fullContent + '\n\n⚠️ [连接中断，内容可能不完整]';
             setMessages((prev) => [
               ...prev,
-              { ...assistantMessage, content: contentWithWarning, status: 'done' }
+              {
+                ...assistantMessage,
+                content: contentWithWarning,
+                reasoningContent: fullReasoning || undefined,
+                status: 'done'
+              }
             ]);
             setStreamingMessage(null);
             return;
@@ -326,7 +350,12 @@ export function useChat({
           }
           setMessages((prev) => [
             ...prev,
-            { ...assistantMessage, content: fullContent, status: 'done' }
+            {
+              ...assistantMessage,
+              content: fullContent,
+              reasoningContent: fullReasoning || undefined,
+              status: 'done'
+            }
           ]);
         }
         setStreamingMessage(null);
@@ -351,10 +380,11 @@ export function useChat({
         }
 
         pendingStreamContentRef.current = '';
+        pendingStreamReasoningRef.current = '';
         abortControllerRef.current = null;
       }
     },
-    [apiKey, model, provider, getContextMessages, throttledUpdateStreamContent]
+    [apiKey, model, provider, getContextMessages, throttledUpdateStream]
   );
 
   const sendMessageNonStream = useCallback(
@@ -410,6 +440,7 @@ export function useChat({
         const lines = text.split('\n').filter((l) => l.startsWith('data: '));
 
         let fullContent = '';
+        let fullReasoning = '';
 
         for (const line of lines) {
           const data = line.slice(6);
@@ -418,11 +449,15 @@ export function useChat({
           try {
             const parsed = JSON.parse(data) as {
               content?: string;
+              reasoning?: string;
               usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
             };
 
             if (parsed.content) {
               fullContent += parsed.content;
+            }
+            if (parsed.reasoning) {
+              fullReasoning += parsed.reasoning;
             }
 
             if (parsed.usage) {
@@ -441,7 +476,12 @@ export function useChat({
         if (fullContent) {
           setMessages((prev) => [
             ...prev,
-            { ...assistantMessage, content: fullContent, status: 'done' }
+            {
+              ...assistantMessage,
+              content: fullContent,
+              reasoningContent: fullReasoning || undefined,
+              status: 'done'
+            }
           ]);
         }
         setStreamingMessage(null);
@@ -509,6 +549,14 @@ export function useChat({
     setStats(initialStats);
   }, []);
 
+  /** 加载历史对话（替换当前消息列表） */
+  const loadMessages = useCallback((history: Message[]) => {
+    setMessages(history);
+    setStreamingMessage(null);
+    setStatus('idle');
+    setLastErrorMessage(null);
+  }, []);
+
   const addError = useCallback((message: string) => {
     setStatus('error');
     setLastErrorMessage(message);
@@ -532,6 +580,7 @@ export function useChat({
     exportToMarkdown,
     cancel,
     clear,
+    loadMessages,
     addError
   };
 }

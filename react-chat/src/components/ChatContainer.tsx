@@ -13,6 +13,9 @@ export interface ChatContainerProps {
   onCancel?: () => void;
   streamMode: boolean;
   onStreamModeChange: (enabled: boolean) => void;
+  /** 是否显示思考过程预览 */
+  showThinking: boolean;
+  onShowThinkingChange: (enabled: boolean) => void;
   /** 额外禁用条件（如未配置 API Key） */
   disabled?: boolean;
 }
@@ -37,6 +40,8 @@ export function ChatContainer({
   onCancel,
   streamMode,
   onStreamModeChange,
+  showThinking,
+  onShowThinkingChange,
   disabled
 }: ChatContainerProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -63,6 +68,7 @@ export function ChatContainer({
             onChange={onStreamModeChange}
             disabled={status === 'requesting' || status === 'streaming'}
           />
+          <ThinkingToggle enabled={showThinking} onChange={onShowThinkingChange} />
           {showCancel && (
             <button
               type="button"
@@ -93,7 +99,9 @@ export function ChatContainer({
                   key={msg.id}
                   role={msg.role}
                   content={msg.content}
+                  reasoningContent={msg.reasoningContent}
                   isStreaming={msg.status === 'streaming'}
+                  showThinking={showThinking}
                 />
               ))}
             </>
@@ -127,6 +135,25 @@ function StreamToggle({ enabled, onChange, disabled }: StreamToggleProps) {
         role="switch"
         aria-checked={enabled}
         aria-disabled={disabled}
+      />
+    </label>
+  );
+}
+
+interface ThinkingToggleProps {
+  enabled: boolean;
+  onChange: (enabled: boolean) => void;
+}
+
+function ThinkingToggle({ enabled, onChange }: ThinkingToggleProps) {
+  return (
+    <label className="toggle">
+      <span>思考过程</span>
+      <div
+        className={`toggle__switch ${enabled ? 'toggle__switch--active' : ''}`}
+        onClick={() => onChange(!enabled)}
+        role="switch"
+        aria-checked={enabled}
       />
     </label>
   );

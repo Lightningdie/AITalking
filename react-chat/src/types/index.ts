@@ -20,6 +20,8 @@ export interface Message {
   id: string;
   role: MessageRole;
   content: string;
+  /** 模型的思考过程（reasoning_content），可能为空 */
+  reasoningContent?: string;
   status: MessageStatus;
   createdAt: number;
 }
@@ -30,7 +32,7 @@ export interface Message {
 export interface UseChatConfig {
   apiKey: string;
   model: string;
-  provider?: 'zhipu' | 'spark';
+  provider?: 'zhipu';
   contextLength?: number;
 }
 
@@ -67,4 +69,17 @@ export interface TokenStats {
   completionTokens: number;
   totalTokens: number;
   turnCount: number;
+}
+
+/**
+ * 历史对话元信息
+ */
+export interface ConversationMeta {
+  id: string;
+  title: string;
+  provider: string;
+  model: string;
+  createdAt: number;
+  updatedAt: number;
+  messageCount: number;
 }

@@ -1,6 +1,7 @@
 /**
  * AI 聊天代理路由
  */
+const http = require('http');
 const https = require('https');
 const API_CONFIG = require('../config/api.config');
 const { jsonResponse, setSSEHeaders, sendSSEData } = require('../utils/response');
@@ -82,8 +83,9 @@ function buildRequestBody(model, messages, stream, config) {
  */
 function buildRequestOptions(config, apiKey, requestBody) {
   return {
+    protocol: `${config.protocol || 'https'}:`,
     hostname: config.hostname,
-    port: 443,
+    port: config.port || 443,
     path: config.path,
     method: 'POST',
     headers: {
@@ -98,15 +100,22 @@ function buildRequestOptions(config, apiKey, requestBody) {
  * 创建 API 请求并处理响应
  */
 function createApiRequest(options, res) {
-  const apiReq = https.request(options, (apiRes) => {
+  const transport = options.protocol === 'http:' ? http : https;
+  const apiReq = transport.request(options, (apiRes) => {
     // 处理错误响应
     if (apiRes.statusCode !== 200) {
       handleApiError(apiRes, res);
       return;
     }
-    
-    // 流式转发响应
-    handleStreamResponse(apiRes, res);
+
+    const contentType = apiRes.headers['content-type'] || '';
+    if (contentType.includes('text/event-stream')) {
+      // 流式转发响应
+      handleStreamResponse(apiRes, res);
+    } else {
+      // 非流式 JSON 响应，整包转发
+      handleJsonResponse(apiRes, res);
+    }
   });
   
   apiReq.on('error', (error) => {
@@ -115,6 +124,19 @@ function createApiRequest(options, res) {
   });
   
   return apiReq;
+}
+
+/**
+ * 从上游响应中提取内容/思考过程/用量
+ */
+function extractChunk(parsed) {
+  const choice = parsed.choices?.[0];
+  const delta = choice?.delta || choice?.message || {};
+  return {
+    content: delta.content || '',
+    reasoning: delta.reasoning_content || '',
+    usage: parsed.usage || null
+  };
 }
 
 /**
@@ -136,29 +158,27 @@ function handleApiError(apiRes, res) {
 }
 
 /**
- * 处理流式响应
+ * 处理流式响应（SSE）
  */
 function handleStreamResponse(apiRes, res) {
   apiRes.on('data', (chunk) => {
     const lines = chunk.toString().split('\n');
-    
+
     for (const line of lines) {
       if (line.startsWith('data: ')) {
         const data = line.slice(6);
-        
+
         if (data === '[DONE]') {
           res.write('data: [DONE]\n\n');
           continue;
         }
-        
+
         try {
           const parsed = JSON.parse(data);
-          const delta = parsed.choices?.[0]?.delta;
-          const content = delta?.content || '';
-          const usage = parsed.usage;
-          
-          if (content || usage) {
-            sendSSEData(res, { content, usage });
+          const { content, reasoning, usage } = extractChunk(parsed);
+
+          if (content || reasoning || usage) {
+            sendSSEData(res, { content, reasoning, usage });
           }
         } catch (e) {
           // 忽略解析错误
@@ -166,11 +186,35 @@ function handleStreamResponse(apiRes, res) {
       }
     }
   });
-  
+
   apiRes.on('end', () => {
     res.end();
   });
-  
+
+  apiRes.on('error', (error) => {
+    sendSSEData(res, { error: error.message });
+    res.end();
+  });
+}
+
+/**
+ * 处理非流式 JSON 响应，统一转成 SSE 格式发给前端
+ */
+function handleJsonResponse(apiRes, res) {
+  let body = '';
+  apiRes.on('data', (chunk) => body += chunk);
+  apiRes.on('end', () => {
+    try {
+      const parsed = JSON.parse(body);
+      const { content, reasoning, usage } = extractChunk(parsed);
+      sendSSEData(res, { content, reasoning, usage });
+    } catch (e) {
+      sendSSEData(res, { error: 'Invalid JSON response from API' });
+    }
+    res.write('data: [DONE]\n\n');
+    res.end();
+  });
+
   apiRes.on('error', (error) => {
     sendSSEData(res, { error: error.message });
     res.end();

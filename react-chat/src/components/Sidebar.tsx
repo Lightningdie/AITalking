@@ -1,26 +1,14 @@
-import type { TokenStats, ChatStatus } from '../types';
+import type { TokenStats, ChatStatus, ConversationMeta } from '../types';
 
 const PROVIDERS = {
   zhipu: {
     name: '智谱 AI',
     models: [
-      { value: 'glm-4.5-flash', label: 'GLM-4.5 Flash (免费)' },
-      { value: 'glm-4-flash', label: 'GLM-4 Flash (免费)' },
-      { value: 'glm-4-plus', label: 'GLM-4 Plus' },
-      { value: 'glm-4', label: 'GLM-4' }
+      { value: 'glm-5.3', label: 'GLM-5.3' },
+      { value: 'glm-5.3-flash', label: 'GLM-5.3 Flash (免费)' },
+      { value: 'glm-5', label: 'GLM-5' }
     ],
     placeholder: '请输入智谱 API Key'
-  },
-  spark: {
-    name: '讯飞星火',
-    models: [
-      { value: 'lite', label: 'Spark Lite (免费)' },
-      { value: 'generalv3', label: 'Spark Pro' },
-      { value: 'pro-128k', label: 'Spark Pro 128K' },
-      { value: 'max-32k', label: 'Spark Max 32K' },
-      { value: '4.0Ultra', label: 'Spark 4.0 Ultra' }
-    ],
-    placeholder: '请输入讯飞 API Key'
   }
 } as const;
 
@@ -42,6 +30,11 @@ export interface SidebarProps {
   isOffline: boolean;
   /** 全局对话状态，导出/清空按钮禁用由此派生 */
   status: ChatStatus;
+  /** 历史对话 */
+  conversations: ConversationMeta[];
+  currentConversationId: string | null;
+  onLoadConversation: (id: string) => void;
+  onDeleteConversation: (id: string) => void;
 }
 
 export function Sidebar({
@@ -58,7 +51,11 @@ export function Sidebar({
   onExport,
   hasMessages,
   isOffline,
-  status
+  status,
+  conversations,
+  currentConversationId,
+  onLoadConversation,
+  onDeleteConversation
 }: SidebarProps) {
   const actionDisabled = status === 'requesting' || status === 'streaming';
   const currentProvider = PROVIDERS[provider] ?? PROVIDERS.zhipu;
@@ -92,7 +89,6 @@ export function Sidebar({
             onChange={(e) => handleProviderChange(e.target.value)}
           >
             <option value="zhipu">智谱 AI</option>
-            <option value="spark">讯飞星火</option>
           </select>
         </div>
 
@@ -158,6 +154,46 @@ export function Sidebar({
             max={50}
           />
           <small className="config-section__hint">保留最近 N 轮对话作为上下文</small>
+        </div>
+
+        <div className="history-section">
+          <label className="config-section__label">🕓 历史对话</label>
+          {conversations.length === 0 ? (
+            <div className="history-empty">暂无历史记录</div>
+          ) : (
+            <div className="history-list">
+              {conversations.map((conv) => (
+                <div
+                  key={conv.id}
+                  className={`history-item ${
+                    conv.id === currentConversationId ? 'history-item--active' : ''
+                  }`}
+                  onClick={() => onLoadConversation(conv.id)}
+                >
+                  <div className="history-item__body">
+                    <div className="history-item__title" title={conv.title}>
+                      {conv.title || '未命名对话'}
+                    </div>
+                    <div className="history-item__meta">
+                      {conv.model || '未知模型'} · {conv.messageCount} 条 ·{' '}
+                      {new Date(conv.updatedAt).toLocaleDateString('zh-CN')}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="history-item__delete"
+                    title="删除该对话"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteConversation(conv.id);
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

@@ -15,8 +15,13 @@ const {
   handleChatProxy,
   handleSSE,
   handlePause,
-  handleResume
+  handleResume,
+  handleListConversations,
+  handleSaveConversation,
+  handleGetConversation,
+  handleDeleteConversation
 } = require('./routes');
+const { initDatabase } = require('./services/database');
 
 /**
  * 创建 HTTP 服务器
@@ -42,7 +47,32 @@ const server = http.createServer((req, res) => {
     handleChatProxy(req, res);
     return;
   }
-  
+
+  // 对话历史记录
+  if (pathname === '/api/conversations' && method === 'GET') {
+    handleListConversations(res);
+    return;
+  }
+
+  if (pathname === '/api/conversations' && method === 'POST') {
+    handleSaveConversation(req, res);
+    return;
+  }
+
+  const conversationMatch = pathname.match(/^\/api\/conversations\/([\w-]+)$/);
+  if (conversationMatch) {
+    const id = conversationMatch[1];
+    if (method === 'GET') {
+      handleGetConversation(id, res);
+    } else if (method === 'DELETE') {
+      handleDeleteConversation(id, res);
+    } else {
+      res.writeHead(405);
+      res.end('Method Not Allowed');
+    }
+    return;
+  }
+
   // SSE 打字机演示
   if (pathname === '/sse') {
     handleSSE(url, req, res);
@@ -67,16 +97,23 @@ const server = http.createServer((req, res) => {
 });
 
 /**
- * 启动服务器
+ * 启动服务器（先初始化数据库）
  */
-server.listen(PORT, () => {
-  console.log(`
+initDatabase()
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`
 ╔════════════════════════════════════════════════╗
 ║   🚀 SSE Typewriter Demo Server Running!       ║
 ║                                                ║
 ║   Open in browser: http://localhost:${PORT}       ║
 ╚════════════════════════════════════════════════╝
   `);
-});
+    });
+  })
+  .catch((error) => {
+    console.error('Database init failed:', error);
+    process.exit(1);
+  });
 
 module.exports = server;
