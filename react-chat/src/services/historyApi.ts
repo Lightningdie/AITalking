@@ -20,6 +20,7 @@ interface MessageRow {
   role: Message['role'];
   content: string;
   reasoning_content: string | null;
+  images: string | null;
   created_at: number;
 }
 
@@ -36,11 +37,16 @@ function toMeta(row: ConversationRow): ConversationMeta {
 }
 
 function toMessage(row: MessageRow): Message {
+  let images: string[] | undefined;
+  if (row.images) {
+    try { images = JSON.parse(row.images); } catch { images = undefined; }
+  }
   return {
     id: row.id,
     role: row.role,
     content: row.content,
     reasoningContent: row.reasoning_content || undefined,
+    images,
     status: 'done',
     createdAt: row.created_at
   };
@@ -83,6 +89,7 @@ export async function saveConversation(payload: {
         role: m.role,
         content: m.content,
         reasoningContent: m.reasoningContent,
+        images: m.images,
         createdAt: m.createdAt
       }))
     })

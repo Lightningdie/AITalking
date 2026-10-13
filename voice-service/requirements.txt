@@ -1,0 +1,7 @@
+# 语音服务基础依赖（Python 3.10+）
+fastapi>=0.110
+uvicorn>=0.29
+edge-tts>=6.1
+
+# ASR 引擎一：faster-whisper（无 torch 依赖，安装小、兼容性好）
+faster-whisper>=1.0

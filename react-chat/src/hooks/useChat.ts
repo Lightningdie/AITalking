@@ -1,8 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { Message, MessageRole, MessageStatus, ChatStatus } from '../types';
+import type { Message, MessageRole, MessageStatus, ChatStatus, ToolCallInfo } from '../types';
 
 // ==================== 常量配置 ====================
-const API_ENDPOINT = '/api/chat';
+// agent 端点 = /api/chat 的超集（同事件协议 + toolCall/toolResult），
+// 模型未调用工具时行为与旧端点完全一致
+const API_ENDPOINT = '/api/agent/chat';
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
 
@@ -15,6 +17,8 @@ function generateMessageId(): string {
 interface CreateMessageParams {
   role: MessageRole;
   content: string;
+  /** 附带的图片（data URL 列表），仅用户消息使用 */
+  images?: string[];
   status?: MessageStatus;
   id?: string;
   createdAt?: number;
@@ -23,6 +27,7 @@ interface CreateMessageParams {
 function createMessage({
   role,
   content,
+  images,
   status = 'done',
   id,
   createdAt
@@ -31,12 +36,25 @@ function createMessage({
     id: id || generateMessageId(),
     role,
     content: content || '',
+    images: images && images.length > 0 ? images : undefined,
     status,
     createdAt: createdAt || Date.now()
   };
 }
 
 // ==================== 工具函数 ====================
+
+/**
+ * 把消息转成上游 API 内容格式：
+ * 带图片时输出 OpenAI 多模态内容块（text + image_url），否则输出纯文本
+ */
+function buildApiContent(content: string, images?: string[]) {
+  if (!images || images.length === 0) return content;
+  return [
+    { type: 'text' as const, text: content || '（图片）' },
+    ...images.map((url) => ({ type: 'image_url' as const, image_url: { url } }))
+  ];
+}
 
 function checkOnline(): boolean {
   return navigator.onLine;
@@ -90,6 +108,8 @@ export interface UseChatConfig {
   model: string;
   provider?: 'zhipu';
   contextLength?: number;
+  /** 思考深度：low / high / max / default（default=走模型默认档，不传该参数） */
+  reasoningEffort?: string;
 }
 
 const initialStats = {
@@ -103,7 +123,8 @@ export function useChat({
   apiKey,
   model,
   provider = 'zhipu',
-  contextLength = 10
+  contextLength = 10,
+  reasoningEffort
 }: UseChatConfig) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingMessage, setStreamingMessage] = useState<Message | null>(null);
@@ -130,37 +151,48 @@ export function useChat({
 
   const getContextMessages = useCallback(() => {
     const maxMessages = contextLength * 2;
-    // 只回传 role/content，避免把思考过程等本地字段发给上游
-    return messages.slice(-maxMessages).map(({ role, content }) => ({ role, content }));
+    // 回传 role/content（带图消息转为多模态内容块），不传思考过程等本地字段
+    return messages.slice(-maxMessages).map(({ role, content, images }) => ({
+      role,
+      content: buildApiContent(content, images)
+    }));
   }, [messages, contextLength]);
 
   const pendingStreamContentRef = useRef('');
   const pendingStreamReasoningRef = useRef('');
+  const pendingToolCallsRef = useRef<ToolCallInfo[]>([]);
 
-  const throttledUpdateStream = useCallback((content: string, reasoning: string) => {
-    pendingStreamContentRef.current = content;
-    pendingStreamReasoningRef.current = reasoning;
+  const throttledUpdateStream = useCallback(
+    (content: string, reasoning: string, toolCalls?: ToolCallInfo[]) => {
+      pendingStreamContentRef.current = content;
+      pendingStreamReasoningRef.current = reasoning;
+      if (toolCalls) pendingToolCallsRef.current = toolCalls;
 
-    if (rafIdRef.current !== null) {
-      cancelAnimationFrame(rafIdRef.current);
-    }
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
 
-    rafIdRef.current = requestAnimationFrame(() => {
-      setStreamingMessage((prev) =>
-        prev
-          ? {
-              ...prev,
-              content: pendingStreamContentRef.current,
-              reasoningContent: pendingStreamReasoningRef.current || undefined
-            }
-          : null
-      );
-      rafIdRef.current = null;
-    });
-  }, []);
+      rafIdRef.current = requestAnimationFrame(() => {
+        setStreamingMessage((prev) =>
+          prev
+            ? {
+                ...prev,
+                content: pendingStreamContentRef.current,
+                reasoningContent: pendingStreamReasoningRef.current || undefined,
+                toolCalls: pendingToolCallsRef.current.length
+                  ? [...pendingToolCallsRef.current]
+                  : undefined
+              }
+            : null
+        );
+        rafIdRef.current = null;
+      });
+    },
+    []
+  );
 
   const sendMessageStream = useCallback(
-    async (content: string) => {
+    async (content: string, images?: string[]) => {
       if (!apiKey) {
         throw new Error('请先设置 API Key');
       }
@@ -172,10 +204,13 @@ export function useChat({
       setStatus('requesting');
       setLastErrorMessage(null);
 
-      const userMessage = createMessage({ role: 'user', content, status: 'done' });
+      const userMessage = createMessage({ role: 'user', content, images, status: 'done' });
       setMessages((prev) => [...prev, userMessage]);
 
-      const contextMessages = [...getContextMessages(), { role: 'user' as const, content }];
+      const contextMessages = [
+        ...getContextMessages(),
+        { role: 'user' as const, content: buildApiContent(content, images) }
+      ];
 
       const assistantMessage = createMessage({
         role: 'assistant',
@@ -200,7 +235,10 @@ export function useChat({
             model,
             provider,
             messages: contextMessages,
-            stream: true
+            stream: true,
+            ...(reasoningEffort && reasoningEffort !== 'default'
+              ? { reasoningEffort }
+              : {})
           }),
           signal: abortControllerRef.current.signal
         });
@@ -217,6 +255,7 @@ export function useChat({
         let fullContent = '';
         let fullReasoning = '';
         let streamError: string | null = null;
+        let fullCalls: ToolCallInfo[] = [];
 
         try {
           while (true) {
@@ -250,12 +289,36 @@ export function useChat({
                     reasoning?: string;
                     usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
                     error?: string;
+                    toolCall?: { id?: string; name?: string; argsSummary?: string };
+                    toolResult?: { id?: string; name?: string; ok?: boolean; summary?: string; url?: string };
                   };
 
                   if (parsed.content || parsed.reasoning) {
                     if (parsed.content) fullContent += parsed.content;
                     if (parsed.reasoning) fullReasoning += parsed.reasoning;
-                    throttledUpdateStream(fullContent, fullReasoning);
+                    throttledUpdateStream(fullContent, fullReasoning, fullCalls);
+                  }
+
+                  if (parsed.toolCall) {
+                    const call = parsed.toolCall;
+                    fullCalls.push({
+                      id: call.id || '',
+                      name: call.name || '',
+                      status: 'running',
+                      argsSummary: call.argsSummary
+                    });
+                    throttledUpdateStream(fullContent, fullReasoning, fullCalls);
+                  }
+
+                  if (parsed.toolResult) {
+                    const result = parsed.toolResult;
+                    const matched = fullCalls.find((c) => c.id === result.id);
+                    if (matched) {
+                      matched.status = result.ok === false ? 'error' : 'ok';
+                      matched.resultSummary = result.summary;
+                      matched.resultUrl = result.url;
+                      throttledUpdateStream(fullContent, fullReasoning, fullCalls);
+                    }
                   }
 
                   if (parsed.usage) {
@@ -299,6 +362,7 @@ export function useChat({
                   ...assistantMessage,
                   content: fullContent,
                   reasoningContent: fullReasoning || undefined,
+                  toolCalls: fullCalls.length ? fullCalls : undefined,
                   status: 'done'
                 }
               ]);
@@ -325,6 +389,7 @@ export function useChat({
                 ...assistantMessage,
                 content: contentWithWarning,
                 reasoningContent: fullReasoning || undefined,
+                toolCalls: fullCalls.length ? fullCalls : undefined,
                 status: 'done'
               }
             ]);
@@ -343,7 +408,7 @@ export function useChat({
           throw readError;
         }
 
-        if (fullContent) {
+        if (fullContent || fullCalls.length > 0) {
           if (rafIdRef.current !== null) {
             cancelAnimationFrame(rafIdRef.current);
             rafIdRef.current = null;
@@ -354,6 +419,7 @@ export function useChat({
               ...assistantMessage,
               content: fullContent,
               reasoningContent: fullReasoning || undefined,
+              toolCalls: fullCalls.length ? fullCalls : undefined,
               status: 'done'
             }
           ]);
@@ -384,11 +450,11 @@ export function useChat({
         abortControllerRef.current = null;
       }
     },
-    [apiKey, model, provider, getContextMessages, throttledUpdateStream]
+    [apiKey, model, provider, reasoningEffort, getContextMessages, throttledUpdateStream]
   );
 
   const sendMessageNonStream = useCallback(
-    async (content: string) => {
+    async (content: string, images?: string[]) => {
       if (!apiKey) {
         throw new Error('请先设置 API Key');
       }
@@ -400,10 +466,13 @@ export function useChat({
       setStatus('requesting');
       setLastErrorMessage(null);
 
-      const userMessage = createMessage({ role: 'user', content, status: 'done' });
+      const userMessage = createMessage({ role: 'user', content, images, status: 'done' });
       setMessages((prev) => [...prev, userMessage]);
 
-      const contextMessages = [...getContextMessages(), { role: 'user' as const, content }];
+      const contextMessages = [
+        ...getContextMessages(),
+        { role: 'user' as const, content: buildApiContent(content, images) }
+      ];
 
       const assistantMessage = createMessage({
         role: 'assistant',
@@ -426,7 +495,10 @@ export function useChat({
             model,
             provider,
             messages: contextMessages,
-            stream: false
+            stream: false,
+            ...(reasoningEffort && reasoningEffort !== 'default'
+              ? { reasoningEffort }
+              : {})
           }),
           signal: abortControllerRef.current.signal
         });
@@ -495,7 +567,7 @@ export function useChat({
         abortControllerRef.current = null;
       }
     },
-    [apiKey, model, provider, getContextMessages]
+    [apiKey, model, provider, reasoningEffort, getContextMessages]
   );
 
   const exportToMarkdown = useCallback((): string | null => {
@@ -557,6 +629,30 @@ export function useChat({
     setLastErrorMessage(null);
   }, []);
 
+  /** 追加一条本地消息（如图片生成的占位），返回该消息对象 */
+  const appendLocalMessage = useCallback(
+    (content: string, role: MessageRole = 'assistant'): Message => {
+      const msg: Message = {
+        id: generateMessageId(),
+        role,
+        content,
+        status: 'done',
+        createdAt: Date.now()
+      };
+      setMessages((prev) => [...prev, msg]);
+      return msg;
+    },
+    []
+  );
+
+  /** 更新某条本地消息（如图片生成完成后替换占位内容） */
+  const updateMessage = useCallback(
+    (id: string, patch: Partial<Message>) => {
+      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+    },
+    []
+  );
+
   const addError = useCallback((message: string) => {
     setStatus('error');
     setLastErrorMessage(message);
@@ -581,6 +677,8 @@ export function useChat({
     cancel,
     clear,
     loadMessages,
+    appendLocalMessage,
+    updateMessage,
     addError
   };
 }

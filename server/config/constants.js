@@ -1,7 +1,13 @@
 /**
  * 常量配置
  */
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
+
+/** Python 语音服务地址（voice-service/，ASR + TTS） */
+const VOICE_SERVICE_URL = process.env.VOICE_SERVICE_URL || 'http://127.0.0.1:5800';
+
+/** 语音代理超时（毫秒）：ASR 首次加载模型较慢，给足时间 */
+const VOICE_PROXY_TIMEOUT = Number(process.env.VOICE_PROXY_TIMEOUT) || 120000;
 
 const DEFAULT_TEXT = `你好！我是一个 SSE 流式消息演示。
 
@@ -18,5 +24,7 @@ SSE（Server-Sent Events）是一种允许服务器向客户端推送事件的�
 
 module.exports = {
   PORT,
+  VOICE_SERVICE_URL,
+  VOICE_PROXY_TIMEOUT,
   DEFAULT_TEXT
 };

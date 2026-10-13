@@ -43,6 +43,13 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
   `);
 
+  // 旧库迁移：messages 补充 images 列（存多模态图片 data URL 数组的 JSON）
+  try {
+    db.run('ALTER TABLE messages ADD COLUMN images TEXT');
+  } catch (e) {
+    // 列已存在则忽略
+  }
+
   persist();
   console.log(`[database] ready at ${DB_FILE}`);
 }
@@ -89,12 +96,13 @@ function saveConversation({ id, title, provider, model, messages }) {
 
   db.run('DELETE FROM messages WHERE conversation_id = ?', [id]);
   for (const msg of messages) {
-    db.run('INSERT INTO messages (id, conversation_id, role, content, reasoning_content, created_at) VALUES (?, ?, ?, ?, ?, ?)', [
+    db.run('INSERT INTO messages (id, conversation_id, role, content, reasoning_content, images, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [
       msg.id,
       id,
       msg.role,
       msg.content || '',
       msg.reasoningContent || null,
+      Array.isArray(msg.images) && msg.images.length ? JSON.stringify(msg.images) : null,
       msg.createdAt || now
     ]);
   }
@@ -122,9 +130,15 @@ function getConversation(id) {
   const conversations = all('SELECT * FROM conversations WHERE id = ?', [id]);
   if (conversations.length === 0) return null;
   const messages = all(
-    'SELECT id, role, content, reasoning_content, created_at FROM messages WHERE conversation_id = ? ORDER BY rowid',
+    'SELECT id, role, content, reasoning_content, images, created_at FROM messages WHERE conversation_id = ? ORDER BY rowid',
     [id]
-  );
+  ).map((row) => {
+    let images = null;
+    if (row.images) {
+      try { images = JSON.parse(row.images); } catch (e) { images = null; }
+    }
+    return { ...row, images };
+  });
   return { conversation: conversations[0], messages };
 }
 

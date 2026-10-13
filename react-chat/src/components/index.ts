@@ -5,3 +5,4 @@ export { CodeBlock } from './CodeBlock';
 export { MessageContent } from './MessageContent';
 export { MilkdownView } from './MilkdownView';
 export { Sidebar } from './Sidebar';
+export { ToolCallStatus } from './ToolCallStatus';

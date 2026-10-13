@@ -14,6 +14,28 @@ export type MessageRole = 'user' | 'assistant' | 'system' | 'error';
 export type MessageStatus = 'idle' | 'streaming' | 'done' | 'error';
 
 /**
+ * 工具调用状态类型（一条工具从发起到完成）
+ */
+export type ToolCallStatusType = 'running' | 'ok' | 'error';
+
+/**
+ * 工具调用信息（SSE toolCall / toolResult 事件驱动）
+ */
+export interface ToolCallInfo {
+  /** 与上游 tool_call id 对应，用于配对 toolResult */
+  id: string;
+  /** 工具名，如 generate_document */
+  name: string;
+  status: ToolCallStatusType;
+  /** 参数摘要（服务端下发，人类可读） */
+  argsSummary?: string;
+  /** 结果摘要（服务端下发，人类可读） */
+  resultSummary?: string;
+  /** 产物下载链接（如 generate_document 生成的文件） */
+  resultUrl?: string;
+}
+
+/**
  * 统一的消息数据结构
  */
 export interface Message {
@@ -22,6 +44,10 @@ export interface Message {
   content: string;
   /** 模型的思考过程（reasoning_content），可能为空 */
   reasoningContent?: string;
+  /** 本轮工具调用过程（agent harness 下发），可能为空 */
+  toolCalls?: ToolCallInfo[];
+  /** 用户上传的图片（data URL 列表），仅用户消息使用 */
+  images?: string[];
   status: MessageStatus;
   createdAt: number;
 }
@@ -53,8 +79,8 @@ export interface UseChatReturn {
     totalTokens: number;
     turnCount: number;
   };
-  sendMessageStream: (content: string) => Promise<void>;
-  sendMessageNonStream: (content: string) => Promise<void>;
+  sendMessageStream: (content: string, images?: string[]) => Promise<void>;
+  sendMessageNonStream: (content: string, images?: string[]) => Promise<void>;
   exportToMarkdown: () => string | null;
   cancel: () => void;
   clear: () => void;

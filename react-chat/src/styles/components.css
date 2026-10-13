@@ -57,7 +57,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
@@ -94,6 +94,12 @@
   flex-shrink: 0;
 }
 
+/* 内容列：flex:1 占满剩余宽度，百分比 max-width 才有稳定参照（否则短消息会过早折行） */
+.chat-bubble__main {
+  flex: 1;
+  min-width: 0;
+}
+
 .chat-bubble--user .chat-bubble__avatar {
   background: var(--color-accent-blue);
 }
@@ -103,7 +109,9 @@
 }
 
 .chat-bubble__content {
-  max-width: 75%;
+  /* 先尽量按内容自适应宽度，超过容器 85% 再折行 */
+  width: fit-content;
+  max-width: 85%;
   padding: 12px 16px;
   border-radius: var(--radius-lg);
   line-height: 1.7;
@@ -116,6 +124,7 @@
   background: var(--color-user-bubble);
   border: 1px solid var(--color-accent-blue);
   border-top-right-radius: 4px;
+  margin-left: auto;
 }
 
 .chat-bubble--assistant .chat-bubble__content {
@@ -181,6 +190,35 @@
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
+}
+
+/* ===== 气泡操作按钮（导出 Word/Excel） ===== */
+.bubble-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.bubble-actions__btn {
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.bubble-actions__btn:hover:not(:disabled) {
+  color: var(--color-accent-blue);
+  border-color: var(--color-accent-blue);
+  background: var(--color-bg-input);
+}
+
+.bubble-actions__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ===== History Section ===== */
@@ -458,6 +496,99 @@
   }
 }
 
+/* ===== 图片上传（输入区预览 + 气泡内缩略图） ===== */
+.attach-button {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.attach-button:hover:not(:disabled) {
+  border-color: var(--color-accent-blue);
+  transform: scale(1.05);
+}
+
+.attach-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input-previews {
+  max-width: 1200px;
+  margin: 0 auto 8px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.input-preview {
+  position: relative;
+}
+
+.input-preview__img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  display: block;
+}
+
+.input-preview__remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-accent-red, #f85149);
+  color: white;
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.input-preview__remove:hover {
+  filter: brightness(1.15);
+}
+
+.input-previews__error {
+  font-size: 0.8rem;
+  color: var(--color-accent-red);
+}
+
+.bubble-images {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.bubble-images__item {
+  max-width: 220px;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  cursor: zoom-in;
+  transition: transform 0.15s ease;
+}
+
+.bubble-images__item:hover {
+  transform: scale(1.02);
+}
+
 /* ===== Input Area ===== */
 .input-area {
   padding: 16px 20px;
@@ -468,7 +599,7 @@
 .input-wrapper {
   display: flex;
   gap: 12px;
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
@@ -797,8 +928,228 @@
     max-width: 90%;
     font-size: 0.9rem;
   }
-  
+
   .stats-grid {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* ==================== 回到底部按钮 ==================== */
+
+/* 滚动区需要定位上下文 */
+.chat-container {
+  position: relative;
+}
+
+.jump-bottom-btn {
+  position: absolute;
+  right: 28px;
+  bottom: 110px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s, border-color 0.2s;
+  z-index: 10;
+}
+
+.jump-bottom-btn:hover {
+  transform: scale(1.08);
+  border-color: var(--color-accent-blue);
+}
+
+/* ==================== 语音功能 ==================== */
+/* 麦克风按钮：样式对齐 attach-button */
+.mic-button {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.mic-button:hover:not(:disabled) {
+  border-color: var(--color-accent-blue);
+  transform: scale(1.05);
+}
+
+.mic-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 录音中：红点脉冲呼吸 */
+.mic-button--listening {
+  border-color: var(--color-accent-red);
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(248, 81, 73, 0);
+  }
+}
+
+/* 语音输入状态条（实时识别文本 / 录音提示） */
+.voice-status {
+  max-width: 1200px;
+  margin: 0 auto 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--color-bg-input);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: 0.88rem;
+}
+
+.voice-status__dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-accent-red);
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+
+.voice-status__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 朗读模式下拉框 */
+.voice-select {
+  padding: 4px 8px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.voice-select:hover {
+  border-color: var(--color-accent-blue);
+}
+
+.voice-select:focus {
+  outline: none;
+  border-color: var(--color-accent-blue);
+}
+
+/* ===== 工具调用状态（agent toolCall / toolResult） ===== */
+.tool-call-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.tool-call {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent-blue);
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+
+.tool-call--running {
+  border-left-color: var(--color-accent-blue);
+}
+
+.tool-call--ok {
+  border-left-color: var(--color-accent-green);
+}
+
+.tool-call--error {
+  border-left-color: var(--color-accent-red);
+}
+
+.tool-call__icon {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.tool-call--running .tool-call__icon {
+  animation: tool-call-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes tool-call-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.tool-call__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.tool-call__name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tool-call__detail {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tool-call__link {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  color: var(--color-accent-blue);
+  text-decoration: none;
+}
+
+.tool-call__link:hover {
+  text-decoration: underline;
+}
+
+/* 流式气泡内：工具行不撑破气泡，长摘要省略号截断 */
+.chat-bubble__content .tool-call-list {
+  max-width: 100%;
+}
+
+.chat-bubble__content .tool-call {
+  max-width: 100%;
 }

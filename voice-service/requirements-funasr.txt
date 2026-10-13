@@ -1,0 +1,6 @@
+# ASR 引擎二：FunASR（中文识别精度更高，需要 torch，安装体积较大）
+# 安装: pip install -r requirements-funasr.txt
+# 启用: 设置环境变量 ASR_ENGINE=funasr 后启动
+funasr>=1.1
+torch
+torchaudio

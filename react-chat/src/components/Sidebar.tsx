@@ -21,6 +21,9 @@ export interface SidebarProps {
   onApiKeyChange: (value: string) => void;
   model: string;
   onModelChange: (value: string) => void;
+  /** 思考深度：low / high / max / default */
+  reasoningEffort: string;
+  onReasoningEffortChange: (value: string) => void;
   contextLength: number;
   onContextLengthChange: (value: number) => void;
   stats: TokenStats;
@@ -44,6 +47,8 @@ export function Sidebar({
   onApiKeyChange,
   model,
   onModelChange,
+  reasoningEffort,
+  onReasoningEffortChange,
   contextLength,
   onContextLengthChange,
   stats,
@@ -117,6 +122,23 @@ export function Sidebar({
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="config-section">
+          <label className="config-section__label">🧩 思考深度</label>
+          <select
+            className="config-section__select"
+            value={reasoningEffort}
+            onChange={(e) => onReasoningEffortChange(e.target.value)}
+          >
+            <option value="max">极限（思考最久，推荐）</option>
+            <option value="high">深度（思考更久）</option>
+            <option value="low">快速（浅思考）</option>
+            <option value="default">模型默认</option>
+          </select>
+          <small className="config-section__hint">
+            档位越高思考时间越长，回答更严谨但响应更慢
+          </small>
         </div>
 
         <div className="stats-card">

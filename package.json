@@ -9,6 +9,9 @@
     "dev": "npm run start",
     "react": "cd react-chat && npm run dev",
     "all": "concurrently \"npm run start\" \"npm run react\"",
+    "voice": "cd voice-service && python app.py",
+    "voice:setup": "cd voice-service && pip install -r requirements.txt",
+    "agent:demo": "node server/scripts/agent-loop-demo.js --mock",
     "install:all": "npm install && cd react-chat && npm install"
   },
   "keywords": [
@@ -21,6 +24,8 @@
     "concurrently": "^8.2.2"
   },
   "dependencies": {
+    "docx": "^9.7.1",
+    "exceljs": "^4.4.0",
     "sql.js": "^1.14.2"
   }
 }

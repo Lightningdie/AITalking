@@ -13,13 +13,19 @@ const { handleCORS } = require('./utils');
 const {
   handleStaticRoutes,
   handleChatProxy,
+  handleAgentChat,
   handleSSE,
   handlePause,
   handleResume,
   handleListConversations,
   handleSaveConversation,
   handleGetConversation,
-  handleDeleteConversation
+  handleDeleteConversation,
+  handleGenerateDocument,
+  handleToolFile,
+  handleVoiceAsr,
+  handleVoiceTts,
+  handleVoiceHealth
 } = require('./routes');
 const { initDatabase } = require('./services/database');
 
@@ -48,6 +54,12 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Agent Harness：模型驱动工具调用（SSE，含 toolCall/toolResult 事件）
+  if (pathname === '/api/agent/chat' && method === 'POST') {
+    handleAgentChat(req, res);
+    return;
+  }
+
   // 对话历史记录
   if (pathname === '/api/conversations' && method === 'GET') {
     handleListConversations(res);
@@ -70,6 +82,34 @@ const server = http.createServer((req, res) => {
       res.writeHead(405);
       res.end('Method Not Allowed');
     }
+    return;
+  }
+
+  // AI 工具：文档生成 / 文件下载
+  if (pathname === '/api/tools/document' && method === 'POST') {
+    handleGenerateDocument(req, res);
+    return;
+  }
+
+  const toolFileMatch = pathname.match(/^\/api\/tools\/files\/(.+)$/);
+  if (toolFileMatch && method === 'GET') {
+    handleToolFile(decodeURIComponent(toolFileMatch[1]), res);
+    return;
+  }
+
+  // 语音：录音识别 / 文字合成 / 健康探测
+  if (pathname === '/api/voice/asr' && method === 'POST') {
+    handleVoiceAsr(req, res);
+    return;
+  }
+
+  if (pathname === '/api/voice/tts' && method === 'POST') {
+    handleVoiceTts(req, res);
+    return;
+  }
+
+  if (pathname === '/api/voice/health' && method === 'GET') {
+    handleVoiceHealth(res);
     return;
   }
 
